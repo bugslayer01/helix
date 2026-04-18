@@ -1,0 +1,72 @@
+{
+  "contestability": {
+    "RevolvingUtilizationOfUnsecuredLines": {
+      "contestable": true,
+      "protected": false,
+      "evidence_types": ["credit_card_statement", "credit_report"],
+      "realistic_delta_multiplier": 2.0,
+      "reason": "Updatable with current statements"
+    },
+    "age": {
+      "contestable": false,
+      "protected": true,
+      "evidence_types": [],
+      "reason": "Protected attribute — not contestable"
+    },
+    "NumberOfTime30-59DaysPastDueNotWorse": {
+      "contestable": true,
+      "protected": false,
+      "evidence_types": ["payment_history", "bank_statement"],
+      "realistic_delta_multiplier": 1.5,
+      "reason": "Updatable with current payment records"
+    },
+    "DebtRatio": {
+      "contestable": true,
+      "protected": false,
+      "evidence_types": ["loan_payoff_receipt", "bank_statement", "credit_report"],
+      "realistic_delta_multiplier": 2.5,
+      "reason": "Updatable with loan payoff / updated statements"
+    },
+    "MonthlyIncome": {
+      "contestable": true,
+      "protected": false,
+      "evidence_types": ["pay_stub", "bank_statement", "tax_return"],
+      "realistic_delta_multiplier": 3.0,
+      "reason": "Updatable with recent pay documentation"
+    },
+    "NumberOfOpenCreditLinesAndLoans": {
+      "contestable": true,
+      "protected": false,
+      "evidence_types": ["credit_report"],
+      "realistic_delta_multiplier": 1.5,
+      "reason": "Updatable via current credit report"
+    },
+    "NumberOfTimes90DaysLate": {
+      "contestable": true,
+      "protected": false,
+      "evidence_types": ["payment_history"],
+      "realistic_delta_multiplier": 1.5,
+      "reason": "Updatable via current payment records"
+    },
+    "NumberRealEstateLoansOrLines": {
+      "contestable": true,
+      "protected": false,
+      "evidence_types": ["property_deed", "credit_report"],
+      "realistic_delta_multiplier": 2.0,
+      "reason": "Updatable via property records"
+    },
+    "NumberOfTime60-89DaysPastDueNotWorse": {
+      "contestable": true,
+      "protected": false,
+      "evidence_types": ["payment_history"],
+      "realistic_delta_multiplier": 1.5,
+      "reason": "Updatable via current payment records"
+    },
+    "NumberOfDependents": {
+      "contestable": false,
+      "protected": true,
+      "evidence_types": [],
+      "reason": "Family structure — not contestable"
+    }
+  }
+}

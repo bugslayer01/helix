@@ -1,0 +1,30 @@
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.local
+
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/**/*.pyc
+
+# Backend artifacts
+backend/db/*.db
+backend/db/*.db-wal
+backend/db/*.db-shm
+backend/data/*.csv
+backend/models/*.pkl
+backend/models/metadata/loans_hints.json
+backend/models/metadata/loans_medians.json
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# code-review-graph
+.code-review-graph/
