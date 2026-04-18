@@ -3,7 +3,7 @@
 **Project codename:** Recourse
 **Track:** T5 — Trustworthy AI & Responsible Systems
 **Problem:** P3 — Model Decision Contestation Interface
-**Domain:** Loan / credit decisions (locked — see §2)
+**Domain scope:** Framework-agnostic; ships with two working adapters (loans — flagship, hiring — secondary) and one documented extension path (content moderation). See §2.
 **Build agent:** Claude Code
 **Target:** Hackathon demo-grade, not production-grade. Every feature must survive a 3-minute live demo.
 
@@ -37,15 +37,65 @@ This has no real model, no real interpretability, no real delta. Judges will hav
 
 ---
 
-## 2. Why loans (domain lock)
+## 2. Domains — flagship, secondary, and extension
 
-- **Public datasets exist and judges recognise them:** German Credit (UCI), Give Me Some Credit (Kaggle), LendingClub. Don't pick a dataset nobody's seen.
-- **Features are intuitive:** income, debt-to-income, employment length, credit history length. Judges don't need a legend.
-- **Evidence is real-world plausible:** pay stubs update income, employment letters update tenure, loan payoff receipts update DTI. Makes the "submit counter-evidence" flow legible in 30 seconds.
-- **Legal tailwind is sharpest here:** Feb 2025 CJEU *Dun & Bradstreet Austria* ruling was literally a credit denial case. EU AI Act Article 86. India's DPDP Act. Open the pitch with these.
-- **Stakes are legible without explanation:** "you were denied a loan" needs no setup.
+The problem statement names three domains: loans, job applications, content moderation. Building all three to demo depth is not realistic in a hackathon and produces a mediocre version of each. Instead, Recourse is architected as a **framework with pluggable domain adapters** — one config file and one model artifact per domain. Ship two working adapters and document the third as a future extension. This is a stronger pitch than pretending to do all three equally.
 
-Do not switch domain mid-build.
+### Flagship: Loans / credit decisions
+Deep implementation. All three contestation paths (correction, new evidence, human review) fully wired. Animated delta, full SHAP waterfall, operator panel, audit trail with hashes. This is what the judges see for 80% of the demo.
+
+**Why loans is the flagship:**
+- Public datasets exist and judges recognise them: German Credit (UCI), Give Me Some Credit (Kaggle), LendingClub.
+- Features are intuitive: income, debt-to-income, employment length, credit history length. Judges don't need a legend.
+- Evidence is real-world plausible: pay stubs update income, employment letters update tenure, loan payoff receipts update DTI. The submit-counter-evidence flow is legible in 30 seconds.
+- Legal tailwind is sharpest here: Feb 2025 CJEU *Dun & Bradstreet Austria* ruling was literally a credit denial case.
+- Stakes are legible without explanation.
+
+### Secondary adapter: Hiring / resume screening
+Lightweight implementation. Same framework, different model, different features. Used as the final 15-second "and here's the same system handling a different domain" moment in the demo. Proves the framework isn't a one-trick pony.
+
+**Dataset:** UCI Adult (Census Income) — predicts income bracket from resume-like features (education, occupation, hours-per-week, work class). It's not literally a hiring dataset but it's the closest clean public analogue and judges have seen it.
+
+**Scope for the hack:** Same three paths, same audit trail, same delta animation — but only one seed applicant, no operator panel, no DiCE hints. Just enough to show the adapter pattern works.
+
+### Documented extension: Content moderation
+**Do not try to build this during the hack.** Content moderation is a different architectural shape because features aren't tabular — they're text tokens or image pixels. SHAP still works (token-level attribution), but "submitting counter-evidence" means something different: providing context (account history, satire label, cultural reference) that re-runs a more expensive classifier or routes to human review.
+
+**What ships:** A README section and a one-page architecture diagram showing how content moderation would integrate — token-level SHAP for the explanation, Path 3 (human review) as the primary contestation path since the other two don't map cleanly, a different UI variant for the evidence intake. This is the "yes we thought about it, here's how it would look" answer to the inevitable judge question, not a half-baked implementation.
+
+### Why this scoping wins
+Three adapters at equal depth = three mediocre demos. One deep + one thin + one documented = a convincing story that the framework generalizes, backed by a demo that actually works. Say this out loud in the pitch.
+
+Do not attempt a fourth domain mid-build. Do not switch which domain is flagship mid-build.
+
+---
+
+## 2a. The adapter contract (Recourse Model Protocol)
+
+Every domain is an **adapter** implementing four methods. Write a new adapter → new domain supported. No frontend changes, no API changes, no core logic changes.
+
+```python
+class DomainAdapter(Protocol):
+    domain_id: str                # "loans", "hiring", "moderation"
+    display_name: str             # "Loan Application", "Resume Screening"
+    model_version_hash: str       # sha256 of the .pkl file
+
+    def predict(self, features: dict) -> dict:
+        """Returns {decision, confidence}"""
+
+    def explain(self, features: dict) -> list[dict]:
+        """Returns [{feature, value, contribution, contestable, evidence_types}]"""
+
+    def feature_schema(self) -> list[dict]:
+        """Returns metadata about all features — type, range, contestable, protected, evidence types"""
+
+    def suggest_counterfactual(self, features: dict) -> list[dict]:
+        """Returns DiCE-generated suggestions (optional — can return [] for simple adapters)"""
+```
+
+The frontend `PathSelector`, `CorrectionForm`, `NewEvidenceForm`, `HumanReviewForm`, and `DeltaWaterfallView` are all driven by the schema returned from `feature_schema()`. Nothing is hardcoded per domain on the UI side.
+
+**What this means for the build:** Write the loan adapter first, get the entire flow working against it. Then write the hiring adapter as a second file. If the hiring adapter works without touching any frontend code or any core backend logic, the framework pattern is proven. If you had to modify something, the adapter contract is leaking and you need to generalize.
 
 ---
 
@@ -115,13 +165,13 @@ Do not switch domain mid-build.
 - Python 3.11+
 - FastAPI + uvicorn
 - scikit-learn, XGBoost (classifier)
-- `shap` (feature attribution)
-- `dice-ml` (counterfactual suggestions — "here's what would flip it")
+- `shap` (feature attribution at runtime)
+- `dice-ml` — **used offline only, during training.** Not called at runtime. See §5 for the offline counterfactual pre-computation pattern.
 - pandas, numpy
 - SQLite via `sqlite3` stdlib (no ORM needed, it's a hack)
 - `python-multipart` for file uploads
 - `httpx` for async LLM calls
-- `diskcache` for persistent LLM response caching
+- In-memory dict for LLM response cache, pre-populated at startup. No disk cache, no extra dependency.
 
 **LLM layer (scoped narrowly — see §4a)**
 - **Primary:** Ollama running locally with `llama3.2:3b` or `qwen2.5:3b` (small, fast, reliable)
@@ -132,15 +182,16 @@ Do not switch domain mid-build.
 - React 18 + Vite
 - TypeScript (or JS if faster; consistency matters more than type safety here)
 - Tailwind CSS
-- Recharts for the waterfall + bars (has built-in animated transitions via `isAnimationActive` and `animationDuration`)
-- Framer Motion for the chip flip and confidence counter tween (Recharts handles the bars; Framer Motion handles everything else)
+- **Framer Motion for all animation work, including the SHAP waterfall bars.** Do not use Recharts. The waterfall is built from pure Tailwind `div` elements with dynamic widths, colors, and positions, each wrapped in a `motion.div`. This gives frame-level control over the staggered timeline specified in §7. Recharts' internal animation engine fights multi-stage choreography and will force you into hacky re-mount workarounds — skip it.
 - Zustand for state (lighter than Redux, faster to wire)
 
 **Optional / stretch**
 - Tesseract.js for OCR on uploaded pay stubs (pure frontend, no server call)
-- OR: Claude API for extracting structured data from uploaded document images. Only if Tesseract is flaky.
 
 **Do not use**
+- No Recharts for the waterfall — it's the wrong tool for the choreography we need
+- No `dice-ml` at runtime — counterfactuals are pre-computed offline (see §5)
+- No `diskcache` or other persistent cache — in-memory dict pre-populated at startup is enough
 - No Next.js — Vite is faster to boot and we don't need SSR
 - No Supabase / Firebase — SQLite file is enough, less auth friction
 - No Docker for the demo — run locally, `npm run dev` + `uvicorn main:app --reload`
@@ -179,54 +230,94 @@ Boring but never breaks. Ship this first, then layer the LLM on top.
 
 ---
 
-## 5. Data and model
+## 5. Data and models
 
-### Dataset
-Primary: **Give Me Some Credit** (Kaggle) — binary classification (serious delinquency in 2 years), 150k rows, 10 features. Clean, well-known, features are legible.
+Two models ship with the build — one per adapter. Both are XGBoost classifiers, trained and saved as `.pkl` artifacts. Training takes under 2 minutes per model in a notebook and is not redone at runtime.
 
-Fallback: **German Credit** (UCI) if Kaggle download is slow — 1000 rows, 20 features, smaller but same shape.
+### Loans adapter — flagship
 
-### Features to use (Give Me Some Credit)
+**Dataset:** Give Me Some Credit (Kaggle) — binary classification (serious delinquency in 2 years), 150k rows, 10 features. Clean, well-known, features are legible.
+
+Fallback: German Credit (UCI) if Kaggle download is slow — 1000 rows, 20 features, smaller but same shape.
+
+**Features and contestability:**
 - `RevolvingUtilizationOfUnsecuredLines` (DTI-adjacent, contestable)
-- `age` (NOT contestable — lock in UI)
+- `age` (NOT contestable — protected attribute)
 - `NumberOfTime30-59DaysPastDueNotWorse` (contestable with payment records)
-- `DebtRatio` (contestable)
-- `MonthlyIncome` (contestable — this is the star of the demo)
+- `DebtRatio` (contestable, star of the demo)
+- `MonthlyIncome` (contestable, star of the demo)
 - `NumberOfOpenCreditLinesAndLoans` (contestable)
 - `NumberOfTimes90DaysLate` (contestable)
 - `NumberRealEstateLoansOrLines` (contestable)
 - `NumberOfTime60-89DaysPastDueNotWorse` (contestable)
 - `NumberOfDependents` (NOT contestable — family structure)
 
-### Contestability metadata
-Maintain a static map: `{feature_name: {contestable: bool, evidence_type: str, reason: str}}`. The UI uses this to lock non-contestable fields and show the correct evidence upload affordance.
+### Hiring adapter — secondary
+
+**Dataset:** UCI Adult (Census Income) — binary classification (income > $50k/year), 48k rows, 14 features. Public, widely used, judges recognise it.
+
+**Features and contestability:**
+- `age` (NOT contestable — protected attribute)
+- `workclass` (contestable — current employment type, evidence: employment letter)
+- `education` (contestable — evidence: degree certificate, transcript)
+- `education_num` (contestable — derived from education)
+- `marital_status` (NOT contestable — protected attribute)
+- `occupation` (contestable — evidence: current job title letter)
+- `relationship` (NOT contestable)
+- `race` (NOT contestable — protected attribute, flagged if model uses it)
+- `sex` (NOT contestable — protected attribute, flagged if model uses it)
+- `capital_gain`, `capital_loss` (contestable — evidence: tax return)
+- `hours_per_week` (contestable — evidence: employment letter)
+- `native_country` (NOT contestable — protected attribute)
+
+**Important:** UCI Adult contains race, sex, and native-country features that a real hiring system must never use. The adapter explicitly marks these as `protected: true` and the UI flags any non-zero SHAP contribution to them as a **bias signal** on the operator panel. This is a deliberate demo feature — it turns a problematic dataset into a teaching moment about protected attributes and surfaces the exact bias problem Recourse is designed to catch.
+
+### Contestability metadata schema
+Lives in each adapter's config file. Same shape for every adapter:
 
 ```python
 CONTESTABILITY = {
   "MonthlyIncome": {
     "contestable": True,
-    "evidence_type": "pay_stub",
+    "protected": False,
+    "evidence_types": ["pay_stub", "bank_statement"],
+    "realistic_delta_multiplier": 3.0,   # flag anomaly if update exceeds 3x
     "reason": "Updatable with recent pay documentation"
   },
   "age": {
     "contestable": False,
-    "evidence_type": None,
+    "protected": True,
+    "evidence_types": [],
     "reason": "Protected attribute — not contestable"
   },
   # ...
 }
 ```
 
-### Model
-- XGBoost classifier, 100 trees, max_depth=5. Train in a notebook, dump to `model.pkl` with joblib. Do not retrain on the fly.
-- Accuracy target: whatever XGBoost gives out of the box with minimal tuning. This is not a Kaggle comp.
-- Save: `model.pkl`, `feature_names.json`, `shap_explainer.pkl` (pre-fit TreeExplainer).
+### Models
+- XGBoost, 100 trees, max_depth=5, for both adapters. Dump to `models/loans.pkl` and `models/hiring.pkl` with joblib.
+- Accuracy target: whatever XGBoost gives out of the box. Not a Kaggle comp.
+- Also save: `feature_names.json`, `shap_explainer.pkl` (pre-fit TreeExplainer) per adapter.
 
-### SHAP integration
-Use `shap.TreeExplainer` — fast, exact for tree models. Return per-feature contribution values with the prediction. This is the entire substrate of the delta visualisation.
+### SHAP integration (runtime)
+Use `shap.TreeExplainer` — fast (single-digit ms for tree models), exact, no sampling. Called inline during `/evaluate` and `/contest`. This is the entire substrate of the delta visualisation.
 
-### DiCE integration
-Use `dice_ml.Dice` with method="random" (fastest) to generate 3 counterfactuals for denied applicants. These power the "you could try changing X" suggestions in the contestation form. Do not overthink DiCE config — defaults are fine for a demo.
+### Counterfactual hints — offline pre-computation (NOT runtime)
+
+DiCE generates credible case-specific hints ("changing DebtRatio to 0.28 would likely flip this") but takes 2–8 seconds per call, which will kill demo momentum. **Move DiCE entirely offline into the training script.**
+
+During training, for each seed applicant profile:
+1. Run DiCE with `method="random"` to generate 2–3 counterfactuals.
+2. Serialize the results into `models/metadata/loans_hints.json` keyed by `case_id`.
+3. At runtime, `/evaluate` reads the pre-computed hints from this file. Zero ML work at request time.
+
+For any novel applicant profile not in the seed set, fall back to a simpler heuristic also computed offline:
+- During training, compute the **median value of each contestable feature across all approved applicants** and store in `models/metadata/loans_medians.json`.
+- At runtime, if no pre-computed DiCE hint exists for this case, serve the approved-median as the hint: "Approved applicants typically have DebtRatio below 0.31."
+
+This hybrid keeps the pitch-level credibility of DiCE ("these hints are algorithmically derived counterfactuals") while guaranteeing sub-20ms response times for every request during the demo. The seed profiles used in the live demo always hit the pre-computed DiCE path.
+
+**Do not call `dice_ml.Dice(...)` inside any FastAPI route.** If you see a `dice_ml` import in `backend/routes/`, that's a bug. DiCE lives in `backend/models/train_loans.py` only.
 
 ---
 
@@ -239,7 +330,8 @@ Initial decision.
 ```json
 Request:
 {
-  "applicant_id": "uuid",  // optional; generated if absent
+  "domain": "loans" | "hiring",          // selects which adapter runs
+  "applicant_id": "uuid",                // optional; generated if absent
   "features": {
     "MonthlyIncome": 4500,
     "DebtRatio": 0.42,
@@ -251,11 +343,13 @@ Request:
 Response:
 {
   "case_id": "uuid",
+  "domain": "loans",
   "decision": "denied" | "approved",
   "confidence": 0.73,
+  "model_version_hash": "sha256:...",     // proves which model evaluated
   "shap_values": [
-    {"feature": "DebtRatio", "value": 0.42, "contribution": -0.34, "contestable": true},
-    {"feature": "MonthlyIncome", "value": 4500, "contribution": -0.18, "contestable": true},
+    {"feature": "DebtRatio", "value": 0.42, "contribution": -0.34, "contestable": true, "protected": false},
+    {"feature": "MonthlyIncome", "value": 4500, "contribution": -0.18, "contestable": true, "protected": false},
     ...
   ],
   "plain_language_reason": "Your debt ratio was the primary factor...",
@@ -389,44 +483,67 @@ Returns patterns across all cases. Now segmented by path:
 
 ### `DeltaWaterfallView` ← THIS IS THE DEMO MONEY SHOT
 (Renders only for Path 1 and Path 2 responses — Path 3 routes to `HumanReviewConfirmation` instead)
-- Horizontal bar chart of SHAP contributions, one row per feature
-- On contest submission: bars *animate* from old contribution to new contribution over 1.2s
-- Bars that shifted sign (negative → positive or vice versa) animate through zero visibly
-- Above the chart: decision chip that flips color/text synchronised with bar animation
-- Above that: confidence number that tweens (e.g. 27% → 68%) in sync
+
+**Construction (important — do not use Recharts here):**
+Each bar is a plain Tailwind `div` with dynamic width and background color, wrapped in a `motion.div`. Framer Motion's `animate` prop tweens `width` (as a percentage of container) and `backgroundColor` between the before-SHAP and after-SHAP states. A centered zero-axis sits in the middle of the container; positive contributions grow rightward (green), negative leftward (red). Bars that cross zero animate *through* the axis, which gives the red→green "sign flip" moment its visual punch.
+
+```jsx
+<motion.div
+  className="h-6 rounded-sm"
+  animate={{
+    width: `${Math.abs(contribution) * scale}%`,
+    backgroundColor: contribution >= 0 ? '#10b981' : '#ef4444',
+    x: contribution >= 0 ? 0 : `-${Math.abs(contribution) * scale}%`,
+  }}
+  transition={{ duration: 1.0, ease: [0.4, 0, 0.2, 1] }}
+/>
+```
+
+One row per feature, keyed by feature name so Framer Motion correctly tweens the existing elements rather than unmounting and re-mounting them.
+
+**Other elements:**
+- Above the bars: decision chip that flips color/text, synchronised with bar animation
+- Above that: confidence number that tweens (e.g. 27% → 68%) via Framer Motion's `animate` on a numeric state
 - Below: summary — "4 features updated, decision changed from Denied to Approved, confidence +41%"
 
-**Animation choreography (critical):**
+**Animation choreography (critical — land this exactly):**
 ```
 t=0.0s: User clicks "Re-evaluate"
 t=0.1s: API response received (backend should be <200ms)
-t=0.2s: Bar animation starts, duration 1.0s, easeInOutCubic
+t=0.2s: Bar animation starts — each bar.motion.div begins its transition, duration 1.0s, easeInOutCubic
 t=0.6s: Decision chip flip begins (Framer Motion rotateY), duration 0.4s
-t=0.8s: Confidence counter starts ticking (Framer Motion animate), duration 0.6s
+t=0.8s: Confidence counter starts ticking (Framer Motion animate on numeric state), duration 0.6s
 t=1.4s: Everything settled, audit log entry fades in below
 ```
-Do not let these fire simultaneously — the stagger is what makes it feel designed.
+Do not let these fire simultaneously — the stagger is what makes it feel designed. Use Framer Motion's `delay` prop or `useAnimationControls` with explicit awaited `start()` calls to enforce the timeline.
+
+### `DomainSelector` — NEW
+- Top-of-page dropdown or tab: "Loan Application" / "Resume Screening"
+- Switching domain reloads the applicant profile from that domain's seed data
+- Purely a demo affordance so judges see the framework handling two domains
+- In production this would not exist — each deployment is single-domain
 
 ### `AuditLogPanel`
 - Chronological list of events for current case
-- Each row: timestamp, action, SHA256 hash of entry (truncated display, click to copy)
+- Each row: timestamp, domain, action, path taken, SHA256 hash of entry (truncated display, click to copy)
 - Visible hash is worth a full point in the demo — looks like production-grade thinking
 
 ### `OperatorPanel` (stretch)
 - Separate route `/operator`
-- Shows aggregate: "Feature X has flipped 12/15 contests in last session"
-- Chart: contest volume over time, flip rate per feature
-- One-liner callout: "Model may be miscalibrated for low-income applicants — recommend threshold review"
+- Shows aggregate across *both* adapters with domain as a filter
+- "In loans, DebtRatio flipped 78% of contests → threshold recalibration candidate"
+- "In hiring, 14% of SHAP contributions flagged on protected attributes (race, sex) → model audit recommended"
+- The cross-domain view is part of the pitch: one pane of glass for every automated decision system in the company
 
 ---
 
 ## 8. The demo money shot — full script
 
-90-second demo sequence. Rehearse this exact flow.
+105-second demo sequence. Rehearse this exact flow.
 
-1. **(0:00–0:12)** Pitch opener. "In February 2025, the EU Court of Justice ruled that companies must provide meaningful explanations of automated credit decisions. India's DPDP Act Section 11 guarantees the right to human intervention. The EU AI Act Article 86 extends this further. No production system today lets a denied applicant meaningfully contest an automated decision. We built that — and we didn't just build one contestation path, we built three, because sometimes the model is right about the data but wrong to be used at all."
+1. **(0:00–0:12)** Pitch opener. "The problem statement names three domains — loans, hiring, content moderation. Rather than build three mediocre demos, we built a framework with two working domain adapters and one documented extension path. In February 2025, the EU Court of Justice ruled that companies must provide meaningful explanations of automated decisions. India's DPDP Act Section 11 guarantees the right to human intervention. No production system does this today. We built it — once, portable across every automated decision system a company runs."
 
-2. **(0:12–0:22)** Show applicant profile. Click Evaluate. Red "Denied" chip appears. SHAP waterfall renders — DebtRatio at -0.34 is the screaming red bar at the top. Plain-language reason appears below (from local Ollama): "Your debt-to-income ratio was the primary factor..."
+2. **(0:12–0:22)** Show loan applicant profile. Click Evaluate. Red "Denied" chip appears. SHAP waterfall renders — DebtRatio at -0.34 is the screaming red bar at the top. Plain-language reason appears below (from local Ollama): "Your debt-to-income ratio was the primary factor..."
 
 3. **(0:22–0:32)** Click Contest. **Path selector appears with three options.** Narrate: "The user chooses the shape of their contest — correct wrong data, add new evidence, or escalate to a human. Each path triggers a different pipeline." Select "Correct existing information."
 
@@ -434,9 +551,11 @@ Do not let these fire simultaneously — the stagger is what makes it feel desig
 
 5. **(0:48–1:05)** Click Re-evaluate. **The money shot.** Bars animate — DebtRatio's red bar shrinks, crosses zero, becomes a green bar at +0.12. Decision chip flips red→green. Confidence number tweens 27% → 68%. Audit log entry fades in with SHA256 hash. Reason category ("stale_data") is visible in the audit row.
 
-6. **(1:05–1:20)** Show Path 3 quickly. Reset to the original denial. Click "Request human review" this time. Select reason: "protected_attribute_bias." Show that *no model re-run happens* — submission goes to a queue with a timestamp and hash. Narrate: "This is the GDPR Article 22(3) path. Sometimes the user's complaint isn't about inputs — it's about the model itself being the wrong tool. We route those to humans, not back into the same black box."
+6. **(1:05–1:18)** Show Path 3 quickly. Reset to the original denial. Click "Request human review" this time. Select reason: "protected_attribute_bias." Show that *no model re-run happens* — submission goes to a queue with a timestamp and hash. Narrate: "This is the GDPR Article 22(3) path. Sometimes the user's complaint isn't about inputs — it's about the model itself being the wrong tool. We route those to humans, not back into the same black box."
 
-7. **(1:20–1:30)** Operator view. "Across today's contests, 62% are corrections — our data pipeline has a freshness problem. 18% of human-review requests cite protected-attribute bias — audit recommended. DebtRatio flipped 78% of Path 1+2 contests — threshold recalibration candidate. This is the accountability layer that turns individual recourse into institutional feedback. Thank you."
+7. **(1:18–1:33)** **Domain switch moment.** Click the DomainSelector, switch to "Resume Screening." A different applicant profile loads — UCI Adult features. Click Evaluate. Denied again, but this time the waterfall shows a small negative SHAP contribution on *sex* — which the operator panel at the bottom flags in red. Narrate: "Same framework, different model, different domain. And look what it caught — the underlying hiring model has a non-zero attribution to a protected attribute. Recourse surfaces bias no one-off audit would find. Same three paths, same audit trail, same animated delta. One adapter per domain."
+
+8. **(1:33–1:45)** Operator view. "Across both domains: loans show 62% of contests are corrections — data pipeline freshness issue. Hiring shows protected-attribute leakage in the base model. Content moderation is documented as a future extension — different feature shape, same framework pattern. This is the accountability layer that turns individual recourse into institutional feedback. Thank you."
 
 ---
 
@@ -445,46 +564,58 @@ Do not let these fire simultaneously — the stagger is what makes it feel desig
 ```
 recourse/
 ├── backend/
-│   ├── main.py               # FastAPI app + route registration
+│   ├── main.py                  # FastAPI app + route registration + adapter registry
+│   ├── adapters/                # One file per domain adapter
+│   │   ├── base.py              # DomainAdapter Protocol (the contract)
+│   │   ├── loans.py             # Flagship adapter
+│   │   ├── hiring.py            # Secondary adapter
+│   │   └── __init__.py          # Registers all adapters at startup
 │   ├── models/
-│   │   ├── train.py          # One-shot training script
-│   │   ├── model.pkl         # Committed artifact
-│   │   ├── explainer.pkl     # Committed SHAP explainer
-│   │   └── metadata.json     # Feature names + contestability map
+│   │   ├── train_loans.py       # Training + offline DiCE pre-compute + medians
+│   │   ├── train_hiring.py      # Same pattern for hiring
+│   │   ├── loans.pkl            # Committed artifact
+│   │   ├── loans_explainer.pkl
+│   │   ├── hiring.pkl
+│   │   ├── hiring_explainer.pkl
+│   │   └── metadata/
+│   │       ├── loans.json            # Contestability map per domain
+│   │       ├── loans_hints.json      # Pre-computed DiCE counterfactuals per seed case_id
+│   │       ├── loans_medians.json    # Approved-median fallback per feature
+│   │       ├── hiring.json
+│   │       ├── hiring_hints.json
+│   │       └── hiring_medians.json
 │   ├── routes/
-│   │   ├── evaluate.py
-│   │   ├── contest.py         # Handles contest_path: correction | new_evidence
-│   │   ├── review.py          # Path 3 — human review queue
+│   │   ├── evaluate.py          # Accepts domain parameter, dispatches to adapter
+│   │   ├── contest.py           # Handles contest_path: correction | new_evidence
+│   │   ├── review.py            # Path 3 — human review queue
 │   │   ├── audit.py
-│   │   └── aggregate.py
+│   │   └── aggregate.py         # Cross-domain aggregation
 │   ├── services/
-│   │   ├── classifier.py      # Wraps model + SHAP
-│   │   ├── dice_service.py    # Wraps DiCE
-│   │   ├── audit_log.py       # SQLite writer + hasher
-│   │   ├── anomaly_check.py   # Realistic-delta bounds checker
-│   │   ├── llm_helper.py      # Ollama primary → OpenAI fallback → template
-│   │   └── llm_cache.py       # diskcache wrapper for LLM responses
+│   │   ├── audit_log.py         # SQLite writer + hasher
+│   │   ├── anomaly_check.py     # Realistic-delta bounds + DEMO_SAFE_CASE_IDS bypass
+│   │   ├── llm_helper.py        # Ollama primary → OpenAI fallback → template
+│   │   └── llm_cache.py         # In-memory dict, pre-populated at startup
 │   ├── db/
-│   │   ├── audit.db           # SQLite — gitignored
-│   │   └── llm_cache/         # diskcache dir — gitignored
+│   │   └── audit.db             # SQLite — gitignored
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
 │   │   ├── main.tsx
 │   │   ├── App.tsx
 │   │   ├── components/
+│   │   │   ├── DomainSelector.tsx              # NEW — switch loans / hiring
 │   │   │   ├── ApplicantProfileView.tsx
-│   │   │   ├── PathSelector.tsx              # NEW — the three-path fork
-│   │   │   ├── CorrectionForm.tsx            # Path 1
-│   │   │   ├── NewEvidenceForm.tsx           # Path 2
-│   │   │   ├── HumanReviewForm.tsx           # Path 3
-│   │   │   ├── HumanReviewConfirmation.tsx   # Path 3 success screen
+│   │   │   ├── PathSelector.tsx                # three-path fork
+│   │   │   ├── CorrectionForm.tsx              # Path 1
+│   │   │   ├── NewEvidenceForm.tsx             # Path 2
+│   │   │   ├── HumanReviewForm.tsx             # Path 3
+│   │   │   ├── HumanReviewConfirmation.tsx     # Path 3 success screen
 │   │   │   ├── DeltaWaterfallView.tsx
 │   │   │   ├── AuditLogPanel.tsx
 │   │   │   └── OperatorPanel.tsx
 │   │   ├── lib/
-│   │   │   ├── api.ts          # Fetch wrappers
-│   │   │   └── store.ts        # Zustand state
+│   │   │   ├── api.ts           # Fetch wrappers
+│   │   │   └── store.ts         # Zustand state (includes current domain)
 │   │   └── styles/
 │   ├── package.json
 │   ├── vite.config.ts
@@ -504,34 +635,41 @@ recourse/
 ## 10. Build phases
 
 ### P0 — must ship (aim: 60% of available time)
-- Train model, save artifacts
-- `/evaluate` endpoint returning decision + SHAP
+- `DomainAdapter` Protocol defined in `adapters/base.py`
+- **Loan adapter** fully implemented — model trained, artifacts saved, `predict` / `explain` / `feature_schema` all wired
+- **Offline counterfactual pre-compute** — `train_loans.py` runs DiCE for each seed case and writes `loans_hints.json`; also writes `loans_medians.json` from approved-applicant medians as the novel-input fallback
+- `/evaluate` endpoint accepting `domain` parameter, dispatching to registered adapter, reading pre-computed hints from metadata
 - `/contest` endpoint accepting `contest_path` (correction or new_evidence), returning delta
-- `/review` endpoint for Path 3 — writes audit entry, does NOT call model
+- `/review` endpoint for Path 3 — writes audit entry, does NOT call any adapter
 - **`PathSelector` component** rendering the three-path fork
 - `ApplicantProfileView`, `CorrectionForm`, `NewEvidenceForm`, `HumanReviewForm`, `DeltaWaterfallView`
-- **Waterfall animation working cleanly** — this is non-negotiable
-- Basic audit log (write to SQLite, show in UI, distinguishes path taken)
+- **Waterfall built from Tailwind divs + Framer Motion** (no Recharts) with the §7 choreography landing cleanly — non-negotiable
+- Basic audit log (write to SQLite with domain tag, show in UI, distinguishes path taken)
 - Static-template LLM fallback (no live LLM needed for P0 — ship the templates first)
-- Seed data: 3 pre-loaded applicant profiles for demo
+- Seed data: 3 pre-loaded loan applicant profiles for demo
 
 ### P1 — should ship (aim: next 25%)
+- **Hiring adapter** — `hiring.py` implementing the same protocol, UCI Adult model trained and saved, `hiring_hints.json` and `hiring_medians.json` generated offline
+- `DomainSelector` frontend component — switch between loans and hiring
+- 1 seed applicant profile for hiring (one is enough for the demo moment)
 - SHA256 hashing of audit entries, visible in UI
-- DiCE counterfactual suggestions in the correction and new-evidence forms
+- Pre-computed DiCE hints rendering in correction and new-evidence forms (both domains)
 - Ollama integration with async non-blocking calls for plain-language reasons
-- Response caching via `diskcache` keyed on SHAP-vector hash
+- **In-memory dict cache** for LLM responses, pre-populated at FastAPI startup for all seed cases (keyed by `(domain, normalized_shap_hash)` — see §12 for the normalization recipe)
 - OpenAI fallback wired in with 2s timeout on Ollama
-- Locked feature indicators in UI (age, dependents)
+- Locked feature indicators in UI (age, dependents on loans; race, sex, native-country on hiring)
+- Protected-attribute bias flag on OperatorPanel when SHAP contribution on protected features exceeds 0.05
 - Polished styling (Tailwind, dark mode looks good in demo)
 
 ### P2 — stretch (remaining 15%)
 - OCR-based evidence upload (Tesseract.js)
-- Anomaly-check circuit breaker (realistic-delta bounds) that routes outliers to human review
-- `OperatorPanel` with aggregate view segmented by contest path
+- Anomaly-check circuit breaker (realistic-delta bounds) that routes outliers to human review — **with a `DEMO_SAFE_CASE_IDS` allowlist that bypasses the check for the live demo profiles**, so the main flow never aborts unexpectedly
+- `OperatorPanel` with cross-domain aggregate view segmented by contest path
 - Multiple contestation rounds on same case
 - Export audit trail as PDF
+- Content moderation adapter as a README architecture diagram only — do NOT try to implement this
 
-**Cut ruthlessly if time compresses.** The waterfall animation + three-path selector + audit log with hashes is the minimum viable *differentiator*. Everything else is garnish.
+**Cut ruthlessly if time compresses.** P0 (loan adapter + three-path flow + div-based animated delta + audit log) is the minimum viable demo. If the hiring adapter isn't ready at T-6hrs, cut it and lean harder on the "documented extension path" narrative for both hiring and moderation. Do not ship a half-working hiring adapter.
 
 ---
 
@@ -566,16 +704,28 @@ Likely questions. Have answers ready.
 ## 12. Things that are easy to get wrong
 
 - **SHAP direction convention:** TreeExplainer returns contributions where positive means "pushed toward positive class." Lock down which class is "approved" at train time and be consistent in UI colouring. Nothing kills a demo faster than a green bar for something bad.
-- **Recharts animation on data change:** Recharts animates on mount, not always on data change. Use `key` prop keyed on case_id + contest_round to force re-animation, or manually animate with Framer Motion's `animate` on numeric values.
+- **Framer Motion with mapped keys:** When rendering the waterfall bars from an array of features, Framer Motion needs each `motion.div` to have a stable `key` prop matching the feature name — not the array index. Otherwise, when the after-state reorders features by magnitude, Framer Motion will tween between the wrong pairs of bars and you'll get a chaotic-looking animation. Sort features by stable criteria (e.g., feature name) and let CSS ordering handle visual sort if needed.
 - **FastAPI CORS:** Enable permissive CORS in dev (`allow_origins=["*"]`) or the frontend fetch will silently fail.
 - **Model + SHAP version mismatch:** Pin versions in requirements.txt. `shap==0.44` works with `xgboost==2.0` — verify.
 - **SQLite write concurrency:** Not an issue at demo scale, but use `isolation_level=None` and `PRAGMA journal_mode=WAL` if reviewers hammer it.
 - **OCR timing:** Tesseract.js first load downloads 10MB of model data. Preload on app mount or the demo upload will have a 15s pause.
-- **Ollama model not pulled on demo machine:** `ollama pull llama3.2:3b` takes several minutes on slow wifi. Do this the night before the demo, not during setup. If the demo laptop is different from the build laptop, export the model with `ollama save` or redo the pull in advance.
+- **Ollama model not pulled on demo machine:** `ollama pull llama3.2:3b` takes several minutes on slow wifi. Do this the night before the demo, not during setup. If the demo laptop is different from the build laptop, redo the pull in advance.
 - **LLM call blocking the UI:** If the plain-language sentence awaits the LLM response before rendering the whole page, a slow Ollama startup will stutter the demo. Make the LLM call strictly async — render SHAP immediately, slot the plain-language sentence in ~500ms later with a fade-in.
-- **Cache key collisions:** Cache LLM responses by a hash of the SHAP-vector (rounded to 2 decimals), not by case_id. Otherwise every new case bypasses the cache even when SHAP output is nearly identical.
-- **Path 3 accidentally hitting the model:** The `/review` handler must NOT call `classifier.predict`. It only writes an audit entry and returns a queue position. This is easy to get wrong if you copy-paste from `/contest`.
+- **Cache key collisions from float precision:** SHAP values are floats; `0.34000001` and `0.34000000` hash differently and will cause every "identical" input to miss the cache. Normalize before hashing with this exact recipe:
+  ```python
+  def cache_key(domain: str, shap_values: list[dict]) -> str:
+      normalized = [
+          (v["feature"], round(v["contribution"], 1), round(v["value"], 1))
+          for v in shap_values
+      ]
+      normalized.sort(key=lambda t: t[0])  # sort alphabetically by feature name
+      return f"{domain}:{hashlib.sha256(repr(normalized).encode()).hexdigest()}"
+  ```
+  Round to 1 decimal (0.1 granularity is sufficient for "same case"), sort before hashing, include domain as a key prefix. Test with two slightly different float inputs before trusting it.
+- **Path 3 accidentally hitting the model:** The `/review` handler must NOT call `classifier.predict`. It only writes an audit entry and returns a queue position. Easy to get wrong if you copy-paste from `/contest`.
 - **Reason category free-text drift:** Keep `reason_category` as a hard enum on both the frontend dropdown and the backend schema. If it becomes free-text, the aggregate panel's insights become useless.
+- **Anomaly check firing during the live demo:** The realistic-delta check is a production feature, not a demo feature. If you type a value that crosses the threshold during your pitch, Path 1 will abort and dump into Path 3, destroying the money shot. Implement a `DEMO_SAFE_CASE_IDS: set[str]` allowlist in `anomaly_check.py` — if the incoming `case_id` is in the set, skip the check entirely. Populate this set with the 3 seed case IDs. The anomaly logic still exists for judge Q&A about fraud prevention; the demo just never triggers it.
+- **Pre-computed hints missing for a case:** `/evaluate` must gracefully fall back to the approved-median heuristic when `loans_hints.json` has no entry for the `case_id`. Do not 500 on a missing hint — the hint is a UX enhancement, not a core requirement.
 
 ---
 
@@ -597,29 +747,40 @@ Structure:
 
 The build is done when:
 - [ ] A denied applicant profile loads in under 2s
-- [ ] Clicking Evaluate returns SHAP values and renders the waterfall in under 1s
+- [ ] Clicking Evaluate returns SHAP values and renders the waterfall in under 1s (backend response under 200ms — no live DiCE calls)
 - [ ] The PathSelector renders three clearly labeled options with reason-category dropdown
-- [ ] Paths 1 and 2 trigger the animated delta that completes in ~1.5s without jank
+- [ ] Paths 1 and 2 trigger the div-based animated delta that completes in ~1.5s without jank
 - [ ] Path 3 writes an audit entry without calling the classifier (verified by log inspection)
 - [ ] The decision chip flips colour and the confidence number tweens in sync
 - [ ] Audit log shows entries with visible SHA256 hashes and the path taken
 - [ ] Plain-language reasons render via Ollama with OpenAI fallback confirmed to work
 - [ ] Static template fallback fires correctly when both LLM options fail (test by shutting Ollama down)
-- [ ] The demo can be run end-to-end in under 90 seconds with no dev console errors
+- [ ] LLM cache hits for the 3 seed cases on repeated requests (test by restarting the server and immediately hitting evaluate twice)
+- [ ] Pre-computed DiCE hints are loaded at startup and served from `loans_hints.json` (no live `dice_ml.Dice(...)` call appears in the `/evaluate` code path)
+- [ ] Anomaly check is present in the codebase but bypassed for the `DEMO_SAFE_CASE_IDS` allowlist (verified by attempting a large update on a demo case and seeing it proceed normally)
+- [ ] The demo can be run end-to-end in under 105 seconds with no dev console errors
 
-Everything beyond these ten is garnish.
+Everything beyond these thirteen is garnish.
 
 ---
 
 ## 15. For Claude Code specifically
 
 - Start by scaffolding the backend. Model training script first, then API, then frontend. Don't build the UI against a stub — build it against a real running endpoint from day one.
+- **Build the `DomainAdapter` Protocol in `adapters/base.py` before anything else.** The entire backend then reads that contract. If you skip this step and hardcode "loans" everywhere, retrofitting the hiring adapter later will be painful.
+- **Build the loan adapter end-to-end first — through to a working animated delta — before you even start the hiring adapter.** Do not build both in parallel. The loan flow is the demo's center of gravity; the hiring adapter is only meaningful *after* the loan one works, because its value is proving that the framework generalizes.
 - **Build Path 3 (`/review`) before Paths 1 and 2.** It's the simplest endpoint (write audit entry, return queue position, no classifier touched) and getting it in first means the three-path shape of the product is visible from hour one. It also forces you to get the audit log right before you're tempted to shortcut it.
-- When writing the waterfall animation, build it in isolation first (Storybook-style single-component test page), get the animation clean, then integrate. Do not debug animation inside the full app flow.
+- **Run DiCE only inside `train_loans.py` / `train_hiring.py`.** At runtime, load pre-computed hints from JSON. If `import dice_ml` appears anywhere under `backend/routes/`, that's a bug — fix it before moving on. The only reason the runtime is fast enough for a live demo is because ML work is entirely offline.
+- **Build the waterfall from Tailwind `div`s wrapped in `motion.div`.** Do not import Recharts for this component. Frame-level control over the §7 choreography requires direct access to each bar's animation state. Build it in isolation first (single-component test page), get the animation clean, then integrate. Do not debug animation inside the full app flow.
+- **When you add the hiring adapter, only touch `backend/adapters/hiring.py`, `backend/models/train_hiring.py`, `backend/models/metadata/hiring*.json`, and the adapter registry.** If you find yourself editing any frontend component, any route file, or any service file to make hiring work — stop and generalize first. That's the contract leaking.
 - Commit after each P0 milestone. Tag a "demo-safe" commit once P0 is green so you can always revert.
-- **The LLM is local-first.** Ollama runs on the demo machine, OpenAI is fallback, static templates are last resort. The only guaranteed network call is the OpenAI fallback, which should almost never fire because of the cache. The demo must be runnable with wifi off — test this explicitly at least once.
+- **The LLM is local-first.** Ollama runs on the demo machine, OpenAI is fallback, static templates are last resort. The only guaranteed network call is the OpenAI fallback, which should almost never fire because of the in-memory cache. The demo must be runnable with wifi off — test this explicitly at least once.
 - Write the static template fallback *first*, wire the Ollama call as an enhancement on top. This way, the app works end-to-end before the LLM layer is even started, and the LLM becomes additive, not load-bearing.
-- If something is taking more than 2x your estimate, cut scope. The waterfall animation is sacred; everything else can be cut.
+- **The LLM cache is a plain Python dict pre-populated at FastAPI startup** for the 3 seed case SHAP fingerprints. No `diskcache`, no `lru_cache`, no persistence. Server restarts wipe it, which is what you want during iteration.
+- **Populate `DEMO_SAFE_CASE_IDS` with the seed case UUIDs before the live demo.** The anomaly check must skip these cases. If you forget this step and type an unrealistic update during the pitch, the demo will abort into Path 3 and you'll lose the audience. This is the single highest-leverage safety check in the whole brief.
+- If something is taking more than 2x your estimate, cut scope. The waterfall animation is sacred; everything else can be cut — **including the hiring adapter.** Loans alone with three paths and a clean demo beats two half-working adapters.
+- **Read §4a and §12 before writing any LLM code.** The scope discipline in §4a is the difference between this being a "real product" and "another GPT wrapper." The pitfalls in §12 are the actual bugs you'll hit.
+- When in doubt about what to build next, reread §0 priority order. If the current task isn't on that list, you're probably scope-creeping.
 - **Read §4a and §12 before writing any LLM code.** The scope discipline in §4a is the difference between this being a "real product" and "another GPT wrapper." The pitfalls in §12 are the actual bugs you'll hit.
 - When in doubt about what to build next, reread §0 priority order. If the current task isn't on that list, you're probably scope-creeping.
 
