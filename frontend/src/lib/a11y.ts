@@ -36,6 +36,7 @@ export function loadA11y(): A11yPrefs {
   }
 }
 
+// Save current accessibility preferences to localStorage
 export function saveA11y(prefs: A11yPrefs): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
