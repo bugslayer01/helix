@@ -40,3 +40,4 @@ customer_portal/backend/uploads/
 
 # LLM cache
 .llm-cache/
+.vite/
