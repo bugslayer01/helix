@@ -79,8 +79,27 @@ CREATE TABLE IF NOT EXISTS contest_handoffs (
   revoked_at      INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS job_postings (
+  id              TEXT PRIMARY KEY,
+  title           TEXT NOT NULL,
+  jd_text         TEXT NOT NULL,
+  created_at      INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS hiring_applications (
+  id              TEXT PRIMARY KEY,
+  applicant_id    TEXT NOT NULL REFERENCES applicants(id),
+  posting_id      TEXT NOT NULL REFERENCES job_postings(id),
+  resume_text     TEXT NOT NULL,
+  resume_path     TEXT,
+  status          TEXT NOT NULL CHECK (status IN ('intake','decided','in_contest','closed')),
+  submitted_at    INTEGER NOT NULL,
+  decided_at      INTEGER
+);
+
 CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
 CREATE INDEX IF NOT EXISTS idx_decisions_app ON decisions(application_id);
+CREATE INDEX IF NOT EXISTS idx_hiring_apps_status ON hiring_applications(status);
 """
 
 
