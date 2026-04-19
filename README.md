@@ -339,6 +339,66 @@ SHA-256 at every call. Drift raises HTTP 409.
 
 ---
 
+## Hiring vertical (shipped)
+
+Same Recourse pipeline now handles hiring decisions. Same
+`customer_portal/backend` (FastAPI :8001), same `customer_portal/frontend`
+(Vite :5174). A **DomainSwitcher pill** in the header toggles
+`?domain=hiring` ↔ `?domain=loans`. No new processes.
+
+**Flow:**
+
+1. Recruiter pastes a JD + uploads a resume PDF in the LenderCo portal.
+2. The portal calls **OpenAI gpt-4o-mini** with a strict JSON schema.
+   The LLM judge returns `verdict + fit_score + 3-6 reasons`, each tied
+   to a JD requirement and a resume quote.
+3. If denied, the same JWT handoff flow as loans mints a contest link.
+4. The applicant lands on Recourse, verifies DOB, and contests each
+   reason individually — with **either** a doc upload **or** a free-text
+   rebuttal.
+5. Recourse re-judges via OpenAI, the LLM weighs the rebuttals, and the
+   verdict + delta flows back through the same webhook.
+
+**Run:**
+
+```bash
+echo 'OPENAI_API_KEY=sk-...' > .env.local        # one-time
+make hiring-fixtures                              # generate 3 demo PDFs
+set -a; source .env.local; set +a
+make seed-hiring-all                              # 3 candidates seeded
+make dev
+```
+
+Visit `http://localhost:5174/?domain=hiring`. Pick a posting, drill in,
+issue contest link, follow it to Recourse, contest a reason, watch the
+verdict flip on a strong rebuttal.
+
+LLM calls are disk-cached under `.llm-cache/` (gitignored) so repeated
+demos cost zero tokens after the first run. Total cost per case: ~$0.005.
+
+**Demo cases:**
+
+| Case | Candidate | Role | Outcome |
+|---|---|---|---|
+| `case1` | Asha Verma | Senior Backend Engineer | denied (3 yrs vs 5+ required, no Kubernetes) → flippable with rebuttal |
+| `case2` | Devansh Kapoor | Engineering Manager | held (strong IC but no PM title) |
+| `case3` | Rhea Joshi | Junior Data Analyst | approved at intake — clean fit |
+
+**What this proves about the architecture:** Recourse backend + frontend
+were unchanged. Only the customer-portal grew new routes + UI, and the
+hiring adapter slotted into the existing `DomainAdapter` Protocol.
+Hiring is ~7 commits of new code on top of a workflow that took ~3 weeks
+for loans. Validates the entire moat thesis: build the contestation
+pipeline once, drop in a new vertical with a new adapter.
+
+**Trade-off disclosure:** the "no data egress" claim narrows for hiring
+— resume + JD text go to OpenAI for scoring. Mitigations: structured
+output (no free-text leak), `temperature=0` deterministic, `.llm-cache`
+keeps repeated calls local, model_version pinned by SHA hash. Loans
+remains 100% local (XGBoost + GLM-OCR).
+
+---
+
 ## Regulatory grounding
 
 Recourse is a contestation layer because automated decisions need them:
