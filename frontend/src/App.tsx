@@ -3,55 +3,46 @@ import "./App.css";
 import { useStore } from "./store";
 import { Header } from "./components/Header";
 import { AuditTrail } from "./components/AuditTrail";
-import { DevBar } from "./components/DevBar";
-import { LoginView } from "./components/LoginView";
-import { Step1View } from "./components/Step1View";
-import { Step2View } from "./components/Step2View";
-import { Step3View } from "./components/Step3View";
-import { Step4View } from "./components/Step4View";
-import { ValidationOverlay } from "./components/ValidationOverlay";
+import { HandoffView } from "./components/HandoffView";
+import { UnderstandView } from "./components/UnderstandView";
+import { ContestView } from "./components/ContestView";
+import { OutcomeView } from "./components/OutcomeView";
+import { ReviewView } from "./components/ReviewView";
 
 export default function App() {
-  const step = useStore((s) => s.step);
+  const stage = useStore((s) => s.stage);
   const error = useStore((s) => s.error);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
-  }, [step]);
+  }, [stage]);
 
-  if (step === 0) {
+  if (stage === "handoff") {
     return (
-      <>
-        <LoginView />
-        <DevBar />
-      </>
+      <div className="min-h-screen">
+        <Header />
+        <HandoffView />
+      </div>
     );
   }
 
   return (
     <div className="min-h-screen">
       <Header />
-      <div
-        className="mx-auto grid max-w-shell grid-cols-1 gap-12 px-6 py-10 lg:grid-cols-[1fr_360px] lg:px-8"
-      >
+      <div className="mx-auto grid max-w-shell grid-cols-1 gap-10 px-6 py-10 lg:grid-cols-[1fr_340px] lg:px-8">
         <main id="main" tabIndex={-1} aria-label="Contestation flow">
-          {step === 1 && <Step1View />}
-          {step === 2 && <Step2View />}
-          {step === 3 && <Step3View />}
-          {step === 4 && <Step4View />}
+          {stage === "understand" && <UnderstandView />}
+          {stage === "contest" && <ContestView />}
+          {stage === "review" && <ReviewView />}
+          {stage === "outcome" && <OutcomeView />}
         </main>
         <AuditTrail />
       </div>
       {error && (
-        <div
-          role="alert"
-          className="fixed right-4 bottom-20 z-50 rounded-lg border border-accent/40 bg-surface px-4 py-3 text-sm text-accent shadow-lg"
-        >
+        <div role="alert" className="fixed right-4 bottom-6 z-50 rounded-lg border border-accent/40 bg-surface px-4 py-3 text-sm text-accent shadow-lg">
           {error}
         </div>
       )}
-      <ValidationOverlay />
-      <DevBar />
     </div>
   );
 }

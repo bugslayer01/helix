@@ -1,83 +1,65 @@
 import { useStore } from "../store";
-import { Stepper } from "./Stepper";
 import { ThemeToggle } from "./ThemeToggle";
 import { AccessibilityPanel } from "./AccessibilityPanel";
 
+const STAGES: { id: string; label: string }[] = [
+  { id: "handoff", label: "Verify" },
+  { id: "understand", label: "Understand" },
+  { id: "contest", label: "Contest" },
+  { id: "outcome", label: "Outcome" },
+];
+
 export function Header() {
-  const step = useStore((s) => s.step);
-  const ev = useStore((s) => s.evaluation);
-  const contestResult = useStore((s) => s.contestResult);
-  const reviewResult = useStore((s) => s.reviewResult);
-  const signOut = useStore((s) => s.signOut);
+  const stage = useStore((s) => s.stage);
+  const applicant = useStore((s) => s.applicantDisplay);
+  const externalRef = useStore((s) => s.externalRef);
+  const verdict = useStore((s) => s.decisionVerdict);
 
-  const verbs = ev?.verbs;
-  const displayName = ev?.display_name ?? "";
-
-  let chipClass = "chip-denied";
-  let chipLabel = verbs ? verbs.denied_label : "Denied";
-  let confPct = ev ? Math.round(ev.confidence * 100) : 27;
-
-  if (ev && ev.decision === "approved") {
-    chipClass = "chip-approved";
-    chipLabel = verbs?.approved_label ?? "Approved";
-  }
-
-  if (step === 4 && contestResult?.after && verbs) {
-    if (contestResult.after.decision === "approved") {
-      chipClass = "chip-approved";
-      chipLabel = verbs.approved_label;
-    } else {
-      chipClass = "chip-denied";
-      chipLabel = verbs.denied_label;
-    }
-    confPct = Math.round(contestResult.after.confidence * 100);
-  }
-
-  if (step === 4 && reviewResult) {
-    chipClass = "border border-warn/30 bg-warn/15 text-warn";
-    chipLabel = "Queued for review";
-  }
+  const currentIdx = STAGES.findIndex((s) => s.id === (stage === "review" ? "contest" : stage));
 
   return (
-    <header
-      className="sticky top-0 z-40 border-b hairline bg-cream/92 backdrop-blur"
-      role="banner"
-    >
+    <header className="sticky top-0 z-40 border-b hairline bg-cream/92 backdrop-blur">
       <div className="mx-auto flex max-w-shell items-center justify-between gap-6 px-6 py-4 lg:gap-10 lg:px-8">
-        <div className="flex shrink-0 items-center gap-3">
-          <div
-            aria-hidden
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-ink"
-          >
+        <div className="flex items-center gap-3">
+          <div aria-hidden className="flex h-8 w-8 items-center justify-center rounded-full bg-ink">
             <div className="h-2.5 w-2.5 rounded-full bg-cream" />
           </div>
           <div>
             <div className="display text-lg leading-none">Recourse</div>
             <div className="mt-1 text-[11px] uppercase leading-none tracking-[0.18em] text-ink-muted">
-              {displayName && `${displayName} · `}Case #{ev?.case_id ?? "?"}
+              Independent contestation portal
             </div>
           </div>
         </div>
 
-        <Stepper currentStep={step} />
+        {applicant && (
+          <nav aria-label="Contest progress" className="hidden md:flex items-center gap-3 text-[12px]">
+            {STAGES.map((s, i) => {
+              const active = i === currentIdx;
+              const done = i < currentIdx;
+              return (
+                <div key={s.id} className={`flex items-center gap-2 ${active ? "text-ink" : done ? "text-ink-muted" : "text-ink-muted/60"}`}>
+                  <span className={`h-5 w-5 grid place-items-center rounded-full text-[10px] mono ${active ? "bg-ink text-cream" : done ? "bg-good-soft text-good" : "bg-cream-soft"}`}>
+                    {done ? "✓" : i + 1}
+                  </span>
+                  <span className="uppercase tracking-wider">{s.label}</span>
+                </div>
+              );
+            })}
+          </nav>
+        )}
 
-        <div className="flex shrink-0 items-center gap-3">
-          <span
-            role="status"
-            aria-live="polite"
-            className={`rounded px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors duration-500 ${chipClass}`}
-          >
-            {reviewResult ? chipLabel : `${chipLabel} · ${confPct}%`}
-          </span>
+        <div className="flex items-center gap-3">
+          {applicant && (
+            <div className="hidden sm:block text-right">
+              <div className="text-[13px] font-medium">{applicant}</div>
+              <div className="mono text-[10.5px] text-ink-muted">
+                {externalRef} · {verdict}
+              </div>
+            </div>
+          )}
           <ThemeToggle />
           <AccessibilityPanel />
-          <button
-            onClick={signOut}
-            className="btn-ghost text-xs"
-            aria-label="Sign out and return to login"
-          >
-            Sign out
-          </button>
         </div>
       </div>
     </header>

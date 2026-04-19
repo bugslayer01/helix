@@ -1,255 +1,191 @@
-import type {
-  ContestPath,
-  ContestResult,
-  DomainsCatalog,
-  EvaluationResult,
-  FeatureDelta,
-  ReasonCategory,
-  ReviewResult,
-  ShapEntry,
-} from "../types";
+const BASE = "/api/v1";
 
-const USE_MOCK =
-  typeof window !== "undefined" &&
-  (new URLSearchParams(window.location.search).get("mock") === "1" ||
-    import.meta.env.VITE_USE_MOCK === "1");
-
-const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
-
-/* ---- snake_case → camelCase for SHAP and deltas ---- */
-
-interface RawShap {
-  feature: string;
-  display_name: string;
-  value: number | string;
-  value_display?: string;
-  contribution: number;
-  contestable: boolean;
-  protected: boolean;
-}
-
-interface RawDelta {
-  feature: string;
-  display_name: string;
-  old_value: number | string;
-  new_value: number | string;
-  old_value_display?: string;
-  new_value_display?: string;
-  old_contribution: number;
-  new_contribution: number;
-  contribution_delta: number;
-}
-
-function toShap(row: RawShap): ShapEntry {
-  return {
-    feature: row.feature,
-    displayName: row.display_name,
-    value: row.value,
-    valueDisplay: row.value_display ?? String(row.value),
-    contribution: row.contribution,
-    contestable: row.contestable,
-    protected: row.protected,
-  };
-}
-
-function toDelta(row: RawDelta): FeatureDelta {
-  return {
-    feature: row.feature,
-    displayName: row.display_name,
-    old_value: row.old_value,
-    new_value: row.new_value,
-    old_value_display: row.old_value_display ?? String(row.old_value),
-    new_value_display: row.new_value_display ?? String(row.new_value),
-    old_contribution: row.old_contribution,
-    new_contribution: row.new_contribution,
-    contribution_delta: row.contribution_delta,
-  };
-}
-
-function transformEvaluation(raw: unknown): EvaluationResult {
-  const r = raw as Omit<EvaluationResult, "shap_values"> & {
-    shap_values: RawShap[];
-  };
-  return { ...r, shap_values: r.shap_values.map(toShap) };
-}
-
-function transformContest(raw: unknown): ContestResult {
-  const r = raw as {
-    case_id: string;
-    contest_path: ContestPath;
-    before: { decision: "approved" | "denied"; confidence: number; shap_values: RawShap[] };
-    after: { decision: "approved" | "denied"; confidence: number; shap_values: RawShap[] } | null;
-    delta: {
-      decision_flipped: boolean;
-      confidence_change: number;
-      feature_deltas: RawDelta[];
-    } | null;
-    anomaly_flags: string[];
-    audit_entry_id: string;
-    audit_hash: string;
-  };
-  return {
-    case_id: r.case_id,
-    contest_path: r.contest_path,
-    before: {
-      decision: r.before.decision,
-      confidence: r.before.confidence,
-      shap_values: r.before.shap_values.map(toShap),
+async function call<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    credentials: "include",
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers || {}),
     },
-    after: r.after
-      ? {
-          decision: r.after.decision,
-          confidence: r.after.confidence,
-          shap_values: r.after.shap_values.map(toShap),
-        }
-      : null,
-    delta: r.delta
-      ? {
-          decision_flipped: r.delta.decision_flipped,
-          confidence_change: r.delta.confidence_change,
-          feature_deltas: r.delta.feature_deltas.map(toDelta),
-        }
-      : null,
-    anomaly_flags: r.anomaly_flags ?? [],
-    audit_entry_id: r.audit_entry_id,
-    audit_hash: r.audit_hash,
-  };
-}
-
-/* ---- Mock builder (for ?mock=1) ---- */
-
-async function mockEval(): Promise<EvaluationResult> {
-  return fetchJson(`${BASE}/evaluate/lookup`, "POST", {
-    application_reference: "RC-2024-A4F2-9E31",
-    date_of_birth: "1990-03-12",
-  }).then(transformEvaluation);
-}
-
-async function fetchJson(url: string, method: string, body?: unknown): Promise<unknown> {
-  const res = await fetch(url, {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`${res.status} ${txt}`);
+    let detail: any;
+    try {
+      detail = await res.json();
+    } catch {
+      detail = { detail: { error: { message: res.statusText } } };
+    }
+    const err = detail?.detail?.error || detail?.error;
+    throw new Error(err?.message || `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export interface HandoffPreview {
+  case_id: string;
+  applicant_id: string;
+  issuer: string;
+  decision: string;
+  expires_at: number;
+}
+
+export interface SnapshotDecision {
+  verdict: string;
+  prob_bad: number;
+  decided_at?: number;
+}
+
+export interface ShapRow {
+  feature: string;
+  display_name?: string;
+  value?: number | string;
+  value_display?: string;
+  contribution: number;
+  contestable?: boolean;
+  protected?: boolean;
+}
+
+export interface Snapshot {
+  features: Record<string, number>;
+  decision: SnapshotDecision;
+  shap: ShapRow[];
+  model_version: string;
+}
+
+export interface ContestOpenResp {
+  case_id: string;
+  snapshot: {
+    applicant: { display_name: string; dob_hash: string };
+    decision: SnapshotDecision;
+    features: Record<string, number>;
+    shap: ShapRow[];
+    top_reasons: string[];
+    model_version: string;
+    intake_docs: Array<{ doc_type: string; original_name: string }>;
+  };
+}
+
+export interface CaseResp {
+  case_id: string;
+  status: string;
+  applicant_display: string;
+  external_ref: string;
+  snapshot: Snapshot;
+}
+
+export interface CheckRow {
+  name: string;
+  passed: boolean;
+  severity: "low" | "medium" | "high";
+  detail: string;
+  data?: any;
+}
+
+export interface EvidenceRow {
+  id: string;
+  target_feature: string;
+  doc_type: string;
+  extracted: Record<string, unknown>;
+  extracted_value: number | null;
+  uploaded_at: number;
+  overall: "accepted" | "flagged" | "rejected" | null;
+  summary: string | null;
+  checks: CheckRow[];
+}
+
+export interface UploadResp {
+  evidence_id: string;
+  doc_type: string;
+  extracted_value: number | null;
+  extracted_fields: Record<string, unknown>;
+  extraction_source: string;
+  extraction_confidence: number;
+  validation: {
+    overall: "accepted" | "flagged" | "rejected";
+    summary: string;
+    checks: CheckRow[];
+  };
+  proposal_id: string | null;
+}
+
+export interface OutcomeDelta {
+  feature: string;
+  display_name: string;
+  old: number;
+  new: number;
+  evidence_id: string;
+  contribution_old: number;
+  contribution_new: number;
+}
+
+export interface SubmitResp {
+  case_id: string;
+  outcome: "flipped" | "held";
+  new_decision: { verdict: string; prob_bad: number };
+  new_features: Record<string, number>;
+  new_shap: ShapRow[];
+  delta: OutcomeDelta[];
+  webhook_id: string;
+}
+
+export async function previewHandoff(token: string): Promise<HandoffPreview> {
+  return call("/contest/session/preview", { method: "POST", body: JSON.stringify({ token }) });
+}
+
+export async function openContest(token: string, dob: string): Promise<ContestOpenResp> {
+  return call("/contest/open", { method: "POST", body: JSON.stringify({ token, dob }) });
+}
+
+export async function getCase(): Promise<CaseResp> {
+  return call("/contest/case");
+}
+
+export async function getSession(): Promise<{ session_id: string; case_id: string; status: string; applicant_display: string; external_ref: string }> {
+  return call("/contest/session");
+}
+
+export async function uploadEvidence(targetFeature: string, docType: string, file: File): Promise<UploadResp> {
+  const fd = new FormData();
+  fd.append("target_feature", targetFeature);
+  fd.append("doc_type", docType);
+  fd.append("file", file);
+  const res = await fetch(`${BASE}/contest/evidence`, { method: "POST", body: fd, credentials: "include" });
+  if (!res.ok) {
+    let body: any;
+    try { body = await res.json(); } catch { body = {}; }
+    throw new Error(body?.detail?.error?.message || res.statusText);
   }
   return res.json();
 }
 
-/* ---- Public API ---- */
+export async function listEvidence(): Promise<{ evidence: EvidenceRow[]; proposals: Array<{ id: string; feature: string; original_value: number; proposed_value: number; evidence_id: string; status: string }> }> {
+  return call("/contest/evidence");
+}
 
-export async function loginLookup(ref: string, dob: string): Promise<EvaluationResult> {
-  if (USE_MOCK) return mockEval();
-  const raw = await fetchJson(`${BASE}/evaluate/lookup`, "POST", {
-    application_reference: ref,
-    date_of_birth: dob,
+export async function deleteEvidence(id: string): Promise<void> {
+  await call(`/contest/evidence/${id}`, { method: "DELETE" });
+}
+
+export async function submitContest(): Promise<SubmitResp> {
+  return call("/contest/submit", { method: "POST" });
+}
+
+export async function getOutcome(): Promise<any> {
+  return call("/contest/outcome");
+}
+
+export async function requestReview(reason: string, statement: string): Promise<any> {
+  return call("/contest/request-review", {
+    method: "POST",
+    body: JSON.stringify({ review_reason: reason, user_statement: statement }),
   });
-  return transformEvaluation(raw);
 }
 
-export async function submitContest(
-  caseId: string,
-  path: ContestPath,
-  reasonCategory: ReasonCategory,
-  updates: Record<string, number | string>,
-): Promise<ContestResult> {
-  const raw = await fetchJson(`${BASE}/contest`, "POST", {
-    case_id: caseId,
-    contest_path: path,
-    reason_category: reasonCategory,
-    updates,
-  });
-  return transformContest(raw);
+export async function getAudit(caseId: string): Promise<{ case_id: string; entries: any[] }> {
+  return call(`/audit/${caseId}`);
 }
 
-export async function requestHumanReview(
-  caseId: string,
-  reviewReason: string,
-  statement: string,
-): Promise<ReviewResult> {
-  const raw = (await fetchJson(`${BASE}/review`, "POST", {
-    case_id: caseId,
-    review_reason: reviewReason,
-    user_statement: statement,
-  })) as ReviewResult;
-  return raw;
-}
-
-export async function listDomains(): Promise<DomainsCatalog> {
-  const raw = (await fetchJson(`${BASE}/evaluate/domains`, "GET")) as DomainsCatalog;
-  return raw;
-}
-
-/* ---- Propose / validate / apply (multi-stage contest flow) ---- */
-
-export type ProposalStatus = "validating" | "validated" | "rejected";
-
-export interface ProposalPayload {
-  feature: string;
-  form_key: string;
-  policy: "user_editable" | "evidence_driven";
-  proposed_value?: number | null;
-  evidence_type: string;
-  evidence_filename?: string;
-  evidence_hash?: string;
-}
-
-export interface ProposalState {
-  feature: string;
-  form_key: string;
-  status: ProposalStatus;
-  resolved_value: number | null;
-  validation_note: string | null;
-}
-
-export interface ContestStatus {
-  contest_id: string;
-  status: "validating" | "validated" | "partially_rejected" | "rejected" | "applied";
-  proposals: ProposalState[];
-}
-
-export interface ProposeResponse {
-  contest_id: string;
-  status: "validating";
-  proposals: { feature: string; status: ProposalStatus; estimated_validation_seconds: number }[];
-  audit_entry_id: string;
-  audit_hash: string;
-}
-
-export async function proposeContest(
-  caseId: string,
-  path: ContestPath,
-  reasonCategory: ReasonCategory,
-  proposals: ProposalPayload[],
-  userContext?: string,
-): Promise<ProposeResponse> {
-  return (await fetchJson(`${BASE}/contest/propose`, "POST", {
-    case_id: caseId,
-    contest_path: path,
-    reason_category: reasonCategory,
-    user_context: userContext,
-    proposals,
-  })) as ProposeResponse;
-}
-
-export async function getContestStatus(contestId: string): Promise<ContestStatus> {
-  return (await fetchJson(
-    `${BASE}/contest/${contestId}/status`,
-    "GET",
-  )) as ContestStatus;
-}
-
-export async function applyContest(
-  contestId: string,
-  applyRejectedAsSkip = false,
-): Promise<ContestResult & { contest_id?: string; applied_status?: string }> {
-  const raw = await fetchJson(`${BASE}/contest/${contestId}/apply`, "POST", {
-    apply_rejected_as_skip: applyRejectedAsSkip,
-  });
-  return transformContest(raw) as ContestResult & {
-    contest_id?: string;
-    applied_status?: string;
-  };
+export async function verifyAudit(caseId: string): Promise<{ ok: boolean; rows: number; head: string | null; broken_at_row?: number }> {
+  return call(`/audit/${caseId}/verify`);
 }
