@@ -73,6 +73,7 @@ def process_upload(
     doc_type: str,
     original_name: str,
     blob: bytes,
+    rebuttal_text: str | None = None,
 ) -> dict[str, Any]:
     """Full pipeline. Returns a dict with evidence id, extracted value, and the shield report."""
     if not blob:
@@ -98,12 +99,26 @@ def process_upload(
     # 2. Extraction
     adapter = get_adapter("loans")
     prompt_spec = adapter.extract_prompt(doc_type)
-    extraction = ocr_extract(
-        stored_path,
-        expected_doc_type=doc_type,
-        schema=prompt_spec.get("schema"),
-        prompt=prompt_spec.get("prompt"),
-    )
+    # Text-only rebuttals (no real file) skip OCR — the blob is just the
+    # rebuttal text encoded to bytes and not a renderable document.
+    text_only = rebuttal_text is not None and stored_path.suffix.lower() == ".txt"
+    if text_only:
+        from shared.ocr.router import ExtractionResult  # local import to avoid cycles
+        extraction = ExtractionResult(
+            doc_type=doc_type,
+            fields={},
+            text_layer=rebuttal_text or "",
+            source="rebuttal-text",
+            confidence=1.0,
+            notes=[],
+        )
+    else:
+        extraction = ocr_extract(
+            stored_path,
+            expected_doc_type=doc_type,
+            schema=prompt_spec.get("schema"),
+            prompt=prompt_spec.get("prompt"),
+        )
     fields = extraction.fields or {}
     feature_field = prompt_spec.get("feature_field")
     claimed_value: float | None = None
@@ -155,7 +170,25 @@ def process_upload(
         extraction_source=extraction.source,
     )
 
-    report = run_shield(ctx)
+    if text_only:
+        # Text-only rebuttals have no document to scan — emit a synthetic
+        # accepted report so the adapter still sees the narrative.
+        from shared.validators.shield import ValidationReport
+        from shared.validators.types import CheckResult
+        report = ValidationReport(
+            overall="accepted",
+            summary="Text-only rebuttal accepted for adapter review.",
+            checks=[
+                CheckResult(
+                    name="rebuttal_text",
+                    passed=True,
+                    severity="low",
+                    detail="Free-text rebuttal recorded for adjudicator review.",
+                )
+            ],
+        )
+    else:
+        report = run_shield(ctx)
 
     # 5. Persist evidence + validation + (maybe) proposal
     with _db.conn() as c:
@@ -177,6 +210,7 @@ def process_upload(
                     "source": extraction.source,
                     "confidence": extraction.confidence,
                     "notes": extraction.notes,
+                    "rebuttal_text": rebuttal_text,
                 }),
                 claimed_value,
                 now,
@@ -198,12 +232,14 @@ def process_upload(
         _update_hash_index(c, sha, case_id, now)
 
         proposal_id = None
-        if report.overall == "accepted" and claimed_value is not None and prior_value_f is not None:
-            proposal_id = "pr_" + uuid.uuid4().hex[:12]
-            c.execute(
-                "INSERT INTO proposals (id, case_id, feature, original_value, proposed_value, evidence_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'validated', ?)",
-                (proposal_id, case_id, target_feature, prior_value_f, claimed_value, evidence_id, now),
-            )
+        if report.overall == "accepted":
+            create_proposal = (claimed_value is not None and prior_value_f is not None) or rebuttal_text
+            if create_proposal:
+                proposal_id = "pr_" + uuid.uuid4().hex[:12]
+                c.execute(
+                    "INSERT INTO proposals (id, case_id, feature, original_value, proposed_value, evidence_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'validated', ?)",
+                    (proposal_id, case_id, target_feature, prior_value_f or 0.0, claimed_value or 0.0, evidence_id, now),
+                )
         c.execute("UPDATE contest_cases SET status = 'evidence_review' WHERE id = ? AND status = 'open'", (case_id,))
 
     audit_log.append(

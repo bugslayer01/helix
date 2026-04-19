@@ -17,21 +17,35 @@ async def upload_evidence(
     session: dict = Depends(require_session),
     target_feature: str = Form(...),
     doc_type: str = Form(...),
-    file: UploadFile = File(...),
+    rebuttal_text: str | None = Form(default=None),
+    file: UploadFile | None = File(default=None),
 ) -> dict:
-    blob = await file.read()
+    blob = b""
+    if file is not None:
+        blob = await file.read()
+    if not blob and not rebuttal_text:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": "empty_upload", "message": "Provide a file or rebuttal text."}},
+        )
     if not blob:
-        raise HTTPException(status_code=400, detail={"error": {"code": "empty_upload", "message": "File is empty."}})
+        # Text-only rebuttal — fabricate a placeholder doc so the
+        # pipeline still records an evidence row with a unique sha.
+        blob = (rebuttal_text or "").encode("utf-8")
     try:
         return evidence_pipeline.process_upload(
             case_id=session["case_id"],
             target_feature=target_feature,
             doc_type=doc_type,
-            original_name=file.filename or "upload.bin",
+            original_name=file.filename if file else "rebuttal.txt",
             blob=blob,
+            rebuttal_text=rebuttal_text,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail={"error": {"code": str(exc), "message": "Upload failed."}})
+        raise HTTPException(
+            status_code=400,
+            detail={"error": {"code": str(exc), "message": "Upload failed."}},
+        )
 
 
 @router.get("/evidence")
