@@ -10,6 +10,7 @@ export function ThemeToggle() {
     applyTheme(t);
   }, []);
 
+  // Toggle between dark and light themes and persist setting
   const toggle = () => {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
