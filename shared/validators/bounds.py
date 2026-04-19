@@ -5,6 +5,7 @@ from .types import CheckResult, EvidenceContext
 
 
 def check(ctx: EvidenceContext) -> CheckResult:
+    # Ensure a claimed value is available to perform the bounds check
     if ctx.claimed_value is None:
         return CheckResult(
             name="bounds",
