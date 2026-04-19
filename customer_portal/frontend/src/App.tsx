@@ -1,9 +1,6 @@
 import { useStore } from "./store";
 import { Header } from "./components/Header";
-import { IntroView } from "./components/IntroView";
-import { FormView } from "./components/FormView";
-import { DocsView } from "./components/DocsView";
-import { SubmittingView } from "./components/SubmittingView";
+import { PickerView } from "./components/PickerView";
 import { DecisionView } from "./components/DecisionView";
 import { OperatorView } from "./components/OperatorView";
 
@@ -21,21 +18,14 @@ export function App() {
       <Header operatorMode={view === "operator"} />
       {view === "operator" ? (
         <OperatorView />
-      ) : stage === "intro" ? (
-        <IntroView />
-      ) : stage === "form" ? (
-        <FormView />
-      ) : stage === "docs" ? (
-        <DocsView />
-      ) : stage === "submitting" ? (
-        <SubmittingView />
+      ) : stage === "picker" ? (
+        <PickerView />
       ) : (
         <DecisionView />
       )}
       <footer className="border-t hairline mt-16 py-6 text-center text-[11px] text-ink-muted">
-        LenderCo is a demo customer surface. All decisions are produced by a
-        real XGBoost model; contestation routes to an independent recourse
-        partner.
+        LenderCo is a demo customer surface. Decisions come from the real
+        XGBoost model. Contestation routes to the independent Recourse partner.
       </footer>
     </div>
   );

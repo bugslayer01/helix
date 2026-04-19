@@ -1,129 +1,70 @@
 import { create } from "zustand";
 import * as api from "./lib/api";
 
-export type Stage = "intro" | "form" | "docs" | "submitting" | "decision";
+export type Stage = "picker" | "decision";
 
-interface UploadedDoc {
+interface CaseSummary {
   id: string;
-  doc_type: string;
-  original_name: string;
-  sha256: string;
-  extracted: Record<string, unknown>;
-  source: string;
-  confidence: number;
+  full_name: string;
+  amount: number;
+  status: string;
+  verdict: string | null;
+  prob_bad: number | null;
+  decided_at: number | null;
 }
 
 interface State {
   stage: Stage;
   applicationId: string | null;
-  applicantId: string | null;
-  applicantName: string;
-  dob: string;
-  email: string;
-  phone: string;
-  amount: number;
-  purpose: string;
-  error: string | null;
-  busy: boolean;
-  uploads: UploadedDoc[];
+  cases: CaseSummary[];
+  detail: any | null;
   decision: any | null;
   contestUrl: string | null;
+  error: string | null;
+  busy: boolean;
 
-  setField: (k: "applicantName" | "dob" | "email" | "phone" | "purpose", v: string) => void;
-  setAmount: (v: number) => void;
   goto: (stage: Stage) => void;
-  reset: () => void;
-
-  startApplication: () => Promise<void>;
-  uploadDoc: (docType: string, file: File) => Promise<void>;
-  submitForDecision: () => Promise<void>;
+  loadCases: () => Promise<void>;
+  pickCase: (id: string) => Promise<void>;
   requestContest: () => Promise<void>;
+  back: () => void;
 }
 
 export const useStore = create<State>((set, get) => ({
-  stage: "intro",
+  stage: "picker",
   applicationId: null,
-  applicantId: null,
-  applicantName: "",
-  dob: "",
-  email: "",
-  phone: "",
-  amount: 500000,
-  purpose: "Home renovation",
-  error: null,
-  busy: false,
-  uploads: [],
+  cases: [],
+  detail: null,
   decision: null,
   contestUrl: null,
+  error: null,
+  busy: false,
 
-  setField: (k, v) => set({ [k]: v } as any),
-  setAmount: (v) => set({ amount: v }),
-  goto: (stage) => set({ stage }),
-  reset: () => set({
-    stage: "intro", applicationId: null, applicantId: null,
-    applicantName: "", dob: "", email: "", phone: "",
-    amount: 500000, purpose: "Home renovation",
-    error: null, busy: false, uploads: [], decision: null, contestUrl: null,
-  }),
+  goto(stage) { set({ stage }); },
 
-  async startApplication() {
+  async loadCases() {
     set({ busy: true, error: null });
     try {
-      const s = get();
-      const res = await api.startApplication({
-        full_name: s.applicantName,
-        dob: s.dob,
-        email: s.email,
-        phone: s.phone || undefined,
-        amount: s.amount,
-        purpose: s.purpose,
-      });
-      set({
-        applicationId: res.application_id,
-        applicantId: res.applicant_id,
-        stage: "docs",
-        busy: false,
-      });
+      const r = await api.listOperatorCases();
+      set({ cases: r.cases as CaseSummary[], busy: false });
     } catch (e: any) {
       set({ error: e.message, busy: false });
     }
   },
 
-  async uploadDoc(docType, file) {
-    const { applicationId, uploads } = get();
-    if (!applicationId) return;
-    set({ busy: true, error: null });
+  async pickCase(id) {
+    set({ busy: true, error: null, applicationId: id, contestUrl: null });
     try {
-      const res = await api.uploadDocument(applicationId, docType, file);
+      const detail = await api.getOperatorCase(id);
+      const decision = (detail.decisions || []).slice(-1)[0] || null;
       set({
-        uploads: [
-          ...uploads,
-          {
-            id: res.document_id,
-            doc_type: res.doc_type,
-            original_name: file.name,
-            sha256: res.sha256,
-            extracted: res.extracted,
-            source: res.source,
-            confidence: res.confidence,
-          },
-        ],
         busy: false,
+        detail,
+        decision,
+        stage: "decision",
       });
     } catch (e: any) {
       set({ error: e.message, busy: false });
-    }
-  },
-
-  async submitForDecision() {
-    const { applicationId } = get();
-    if (!applicationId) return;
-    set({ busy: true, error: null, stage: "submitting" });
-    try {
-      const res = await api.submitApplication(applicationId);
-      set({ decision: res.decision, stage: "decision", busy: false });
-    } catch (e: any) {
-      set({ error: e.message, busy: false, stage: "docs" });
     }
   },
 
@@ -132,10 +73,14 @@ export const useStore = create<State>((set, get) => ({
     if (!applicationId) return;
     set({ busy: true, error: null });
     try {
-      const res = await api.requestContestLink(applicationId);
-      set({ contestUrl: res.contest_url, busy: false });
+      const r = await api.requestContestLink(applicationId);
+      set({ contestUrl: r.contest_url, busy: false });
     } catch (e: any) {
       set({ error: e.message, busy: false });
     }
+  },
+
+  back() {
+    set({ stage: "picker", applicationId: null, detail: null, decision: null, contestUrl: null });
   },
 }));
