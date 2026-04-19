@@ -7,6 +7,7 @@ from shared.adapters import get_adapter
 
 
 def score(domain: str, features: dict[str, Any]) -> dict[str, Any]:
+    # Get domain-specific adapter and evaluate features
     adapter = get_adapter(domain)
     prediction = adapter.predict(features)
     shap = adapter.explain(features)
