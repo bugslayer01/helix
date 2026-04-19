@@ -1,0 +1,67 @@
+{
+  "name": "Vikram Singh",
+  "applicant_id": "APP-E2A0-1234",
+  "application_id": "LN-2026-E2A0",
+  "dob": "1984-02-09",
+  "email": "vikram.singh@example.com",
+  "phone": "+91 99700 88110",
+  "amount": 300000,
+  "purpose": "Wedding",
+  "story": "Approved at intake. Useful to demo the LenderCo flow without contesting.",
+  "intake_features": {
+    "RevolvingUtilizationOfUnsecuredLines": 0.15,
+    "DebtRatio": 0.18,
+    "MonthlyIncome": 110000.0,
+    "NumberOfOpenCreditLinesAndLoans": 3.0,
+    "NumberOfTimes90DaysLate": 0.0,
+    "NumberRealEstateLoansOrLines": 1.0,
+    "NumberOfTime30-59DaysPastDueNotWorse": 0.0,
+    "NumberOfTime60-89DaysPastDueNotWorse": 0.0,
+    "NumberOfDependents": 1.0
+  },
+  "intake_documents": [
+    {
+      "doc_type": "payslip",
+      "file": "intake/payslip.pdf"
+    },
+    {
+      "doc_type": "bank_statement",
+      "file": "intake/bank_statement.pdf"
+    },
+    {
+      "doc_type": "credit_report",
+      "file": "intake/credit_report.pdf"
+    }
+  ],
+  "evidence_catalog": [],
+  "adversarial_catalog": [
+    {
+      "id": "stale_payslip_2019",
+      "file": "adversarial/stale_payslip_2019.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "freshness"
+    },
+    {
+      "id": "unsigned_payslip",
+      "file": "adversarial/unsigned_payslip.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "issuer_present"
+    },
+    {
+      "id": "implausible_payslip",
+      "file": "adversarial/implausible_payslip.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "plausibility_vs_baseline"
+    },
+    {
+      "id": "wrong_doc_type",
+      "file": "adversarial/wrong_doc_type.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "doc_type_matches_claim"
+    }
+  ]
+}

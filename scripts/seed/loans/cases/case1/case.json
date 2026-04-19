@@ -1,0 +1,86 @@
+{
+  "name": "Priya Sharma",
+  "applicant_id": "APP-A4F2-9E31",
+  "application_id": "LN-2026-A4F2",
+  "dob": "1990-03-12",
+  "email": "priya.sharma@example.com",
+  "phone": "+91 98100 54321",
+  "amount": 500000,
+  "purpose": "Home renovation",
+  "story": "Income up after promotion, paid down credit cards. Designed to flip.",
+  "intake_features": {
+    "RevolvingUtilizationOfUnsecuredLines": 0.68,
+    "DebtRatio": 0.42,
+    "MonthlyIncome": 48000.0,
+    "NumberOfOpenCreditLinesAndLoans": 4.0,
+    "NumberOfTimes90DaysLate": 0.0,
+    "NumberRealEstateLoansOrLines": 1.0,
+    "NumberOfTime30-59DaysPastDueNotWorse": 0.0,
+    "NumberOfTime60-89DaysPastDueNotWorse": 0.0,
+    "NumberOfDependents": 2.0
+  },
+  "intake_documents": [
+    {
+      "doc_type": "payslip",
+      "file": "intake/payslip.pdf"
+    },
+    {
+      "doc_type": "bank_statement",
+      "file": "intake/bank_statement.pdf"
+    },
+    {
+      "doc_type": "credit_report",
+      "file": "intake/credit_report.pdf"
+    }
+  ],
+  "evidence_catalog": [
+    {
+      "id": "payslip_promotion",
+      "file": "evidence/payslip_promotion.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome"
+    },
+    {
+      "id": "credit_report_repaired",
+      "file": "evidence/credit_report_repaired.pdf",
+      "doc_type": "credit_report",
+      "target_feature": "RevolvingUtilizationOfUnsecuredLines"
+    },
+    {
+      "id": "bank_statement_healthy",
+      "file": "evidence/bank_statement_healthy.pdf",
+      "doc_type": "bank_statement",
+      "target_feature": "MonthlyIncome"
+    }
+  ],
+  "adversarial_catalog": [
+    {
+      "id": "stale_payslip_2019",
+      "file": "adversarial/stale_payslip_2019.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "freshness"
+    },
+    {
+      "id": "unsigned_payslip",
+      "file": "adversarial/unsigned_payslip.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "issuer_present"
+    },
+    {
+      "id": "implausible_payslip",
+      "file": "adversarial/implausible_payslip.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "plausibility_vs_baseline"
+    },
+    {
+      "id": "wrong_doc_type",
+      "file": "adversarial/wrong_doc_type.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "doc_type_matches_claim"
+    }
+  ]
+}

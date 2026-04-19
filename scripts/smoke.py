@@ -28,7 +28,8 @@ sys.path.insert(0, str(REPO))
 
 LENDER = "http://127.0.0.1:8001"
 RECOURSE = "http://127.0.0.1:8000"
-DOC_DIR = REPO / "scripts" / "seed" / "loans" / "docs"
+CASE_DIR = REPO / "scripts" / "seed" / "loans" / "cases" / "case1"
+DOC_DIR = CASE_DIR / "evidence"
 PRIYA_APP = "LN-2026-A4F2"
 PRIYA_DOB = "1990-03-12"
 
@@ -172,8 +173,8 @@ def main() -> int:
     token = request_contest_link()
     with httpx.Client(timeout=20) as client:
         session = open_recourse_session(client, token)
-        upload_evidence(client, "MonthlyIncome", "payslip", "payslip_evidence_new.pdf")
-        upload_evidence(client, "RevolvingUtilizationOfUnsecuredLines", "credit_report", "credit_report_evidence_new.pdf")
+        upload_evidence(client, "MonthlyIncome", "payslip", "payslip_promotion.pdf")
+        upload_evidence(client, "RevolvingUtilizationOfUnsecuredLines", "credit_report", "credit_report_repaired.pdf")
         result = submit_contest(client)
     wait_webhook(PRIYA_APP)
     verify_audit(session["case_id"])

@@ -1,0 +1,80 @@
+{
+  "name": "Rohan Mehta",
+  "applicant_id": "APP-7F11-A001",
+  "application_id": "LN-2026-7F11",
+  "dob": "1986-11-04",
+  "email": "rohan.mehta@example.com",
+  "phone": "+91 98201 11221",
+  "amount": 800000,
+  "purpose": "Debt consolidation",
+  "story": "Tougher case: modest evidence improvements but still high risk. Demos a 'held' outcome.",
+  "intake_features": {
+    "RevolvingUtilizationOfUnsecuredLines": 0.92,
+    "DebtRatio": 0.71,
+    "MonthlyIncome": 28000.0,
+    "NumberOfOpenCreditLinesAndLoans": 6.0,
+    "NumberOfTimes90DaysLate": 0.0,
+    "NumberRealEstateLoansOrLines": 0.0,
+    "NumberOfTime30-59DaysPastDueNotWorse": 2.0,
+    "NumberOfTime60-89DaysPastDueNotWorse": 1.0,
+    "NumberOfDependents": 3.0
+  },
+  "intake_documents": [
+    {
+      "doc_type": "payslip",
+      "file": "intake/payslip.pdf"
+    },
+    {
+      "doc_type": "bank_statement",
+      "file": "intake/bank_statement.pdf"
+    },
+    {
+      "doc_type": "credit_report",
+      "file": "intake/credit_report.pdf"
+    }
+  ],
+  "evidence_catalog": [
+    {
+      "id": "payslip_modest_raise",
+      "file": "evidence/payslip_modest_raise.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome"
+    },
+    {
+      "id": "credit_report_modest_repair",
+      "file": "evidence/credit_report_modest_repair.pdf",
+      "doc_type": "credit_report",
+      "target_feature": "RevolvingUtilizationOfUnsecuredLines"
+    }
+  ],
+  "adversarial_catalog": [
+    {
+      "id": "stale_payslip_2019",
+      "file": "adversarial/stale_payslip_2019.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "freshness"
+    },
+    {
+      "id": "unsigned_payslip",
+      "file": "adversarial/unsigned_payslip.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "issuer_present"
+    },
+    {
+      "id": "implausible_payslip",
+      "file": "adversarial/implausible_payslip.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "plausibility_vs_baseline"
+    },
+    {
+      "id": "wrong_doc_type",
+      "file": "adversarial/wrong_doc_type.pdf",
+      "doc_type": "payslip",
+      "target_feature": "MonthlyIncome",
+      "expected_failure": "doc_type_matches_claim"
+    }
+  ]
+}
