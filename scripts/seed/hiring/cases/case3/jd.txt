@@ -1,0 +1,8 @@
+About the role:
+Junior Data Analyst on the growth team.
+
+Requirements:
+- 0-2 years experience
+- SQL and one of (Python | R)
+- Comfortable with dashboards (Looker / Metabase)
+- Bachelor's in any quantitative field

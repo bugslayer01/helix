@@ -1,0 +1,10 @@
+{
+  "posting_title": "Senior Backend Engineer",
+  "jd_text": "About the role:\nWe are hiring a Senior Backend Engineer to own our Python services platform.\n\nRequirements:\n- 5+ years backend engineering experience\n- Strong Python (FastAPI / Django) + Postgres\n- Hands-on Kubernetes in production\n- Bachelor's degree in CS or equivalent\n- Comfortable owning on-call rotation\n\nNice to have: Go, gRPC, observability tooling.",
+  "candidate": {
+    "full_name": "Asha Verma",
+    "dob": "1995-08-22",
+    "email": "asha.verma@example.com"
+  },
+  "story": "Strong Python but missing Kubernetes + only 3 yrs vs 5+ required. Designed to be denied then flippable with a CKA cert + freelance contracting evidence."
+}
