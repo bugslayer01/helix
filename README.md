@@ -176,6 +176,9 @@ implausibility. Defense in depth.
 
 ### First-time setup
 
+> **Windows:** use `backend/.venv/Scripts/python.exe` in place of
+> `backend/.venv/bin/python` below. `scripts/dev.py` handles the rest.
+
 ```bash
 # Python venv
 uv venv --python 3.12 backend/.venv
