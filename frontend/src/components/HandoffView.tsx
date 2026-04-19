@@ -96,7 +96,7 @@ export function HandoffView() {
       </div>
 
       <div className="mt-6 text-[12px] text-ink-muted">
-        GDPR Art. 22(3) · DPDP §11 · Your right to contest any fully-automated decision.
+        GDPR Art. 22(3) · DPDP Section 11 · Your right to contest any fully-automated decision.
       </div>
     </section>
   );

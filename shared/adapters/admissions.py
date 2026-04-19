@@ -200,7 +200,7 @@ class AdmissionsAdapter(HeuristicAdapter):
         "review_body": "Model is not re-run. A human admissions reader reviews the case.",
     }
 
-    citations = ["GDPR Art. 22(3)", "FERPA", "US HEA §485"]
+    citations = ["GDPR Art. 22(3)", "FERPA", "US HEA Section 485"]
 
     custom_review_reasons = [
         {"value": "protected_attribute_bias", "label": "I believe a protected characteristic influenced scoring"},

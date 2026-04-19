@@ -111,7 +111,7 @@ export function DecisionView() {
               <div className="label mb-2">Statutory right to contest</div>
               <h2 className="display text-xl mb-2">Hand off to Recourse</h2>
               <p className="text-ink-muted text-sm max-w-md">
-                Under DPDP §11 and GDPR Art. 22(3), this denial may be contested.
+                Under DPDP Section 11 and GDPR Art. 22(3), this denial may be contested.
                 Issuing a link mints a signed JWT and opens the independent
                 contestation portal where the applicant validates new evidence
                 against the same underwriting model.

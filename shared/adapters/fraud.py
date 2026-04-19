@@ -218,7 +218,7 @@ class FraudAdapter(HeuristicAdapter):
         "review_body": "Classifier is not re-run. A fraud analyst reviews the case.",
     }
 
-    citations = ["GDPR Art. 22(3)", "DPDP §11", "RBI Master Directions on Fraud"]
+    citations = ["GDPR Art. 22(3)", "DPDP Section 11", "RBI Master Directions on Fraud"]
 
     custom_review_reasons = [
         {"value": "false_positive_trip", "label": "The model flagged legitimate travel or a known purchase"},

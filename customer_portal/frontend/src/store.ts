@@ -71,8 +71,8 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async requestContest() {
-    const { applicationId } = get();
-    if (!applicationId) return;
+    const { applicationId, busy, contestUrl } = get();
+    if (!applicationId || busy || contestUrl) return;
     set({ busy: true, error: null });
     try {
       const r = await api.requestContestLink(applicationId);

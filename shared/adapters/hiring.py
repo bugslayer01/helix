@@ -139,7 +139,7 @@ class HiringAdapter:
         }
 
     def legal_citations(self) -> list[str]:
-        return ["GDPR Art. 22(3)", "EU AI Act Annex III §4(a)", "EEOC Uniform Guidelines"]
+        return ["GDPR Art. 22(3)", "EU AI Act Annex III 4(a)", "EEOC Uniform Guidelines"]
 
     # ---- evidence seams ------------------------------------------------
 

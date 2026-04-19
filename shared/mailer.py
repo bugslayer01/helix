@@ -57,7 +57,7 @@ def render_contest_email(
     decision_summary: str,
     contest_url: str,
     expires_in_hours: int = 24,
-    legal_citation: str = "GDPR Art. 22(3) · DPDP §11",
+    legal_citation: str = "GDPR Art. 22(3) · DPDP Section 11",
 ) -> tuple[str, str, str]:
     """Return (subject, plain_body, html_body) for a contest link mail."""
     subject = f"You can contest your {customer_name} decision — case {case_ref}"

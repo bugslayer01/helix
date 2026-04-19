@@ -50,17 +50,22 @@ load-bearing for the B2B sales motion.
 3. **Tamper-evident audit chain.** SHA-256 chained log of every case event.
    `GET /api/v1/audit/{case_id}/verify` re-hashes the whole chain in <50 ms
    and reports the first broken row. Legal-defense artifact out of the box.
-4. **No data egress.** Document extraction uses
+4. **No data egress (for documents).** Document extraction uses
    **[GLM-OCR](https://huggingface.co/zai-org/GLM-OCR)** (0.9B multimodal, MIT
    licensed, top OmniDocBench v1.5 at 94.62) running locally via Ollama.
    Applicant documents never leave the customer's infrastructure boundary —
-   the biggest enterprise buying signal on the table.
+   the biggest enterprise buying signal on the table. Scoring for both loans
+   and hiring now calls OpenAI `gpt-4o-mini` under identical controls:
+   `temperature=0`, strict JSON schema output, and a disk-backed `.llm-cache`
+   so repeated demos cost zero tokens after the first run. Only the 10-feature
+   vector (loans) or JD + resume text (hiring) ever crosses the boundary —
+   raw uploaded PDFs stay local.
 5. **Explainability UX.** SHAP bars, delta tables, before/after re-scoring
    panels. Rendering attribution well is a specialist craft; most ML teams
    are bad at it. We're the specialists for this specific job.
 6. **Cross-customer fraud signal** (post-hackathon, privacy-preserving). Same
    fake-payslip template hits N customers → network-effect detection.
-7. **Regulatory timing.** GDPR Art. 22(3), DPDP §11, FCRA §615, EU AI Act
+7. **Regulatory timing.** GDPR Art. 22(3), DPDP Section 11, FCRA Section 615, EU AI Act
    Art. 86, EU DSA Art. 17 all mandate contestation. Buying pressure is
    deadline-driven.
 
@@ -314,8 +319,15 @@ helix/
 ## What the model is doing
 
 We use the public **[Give Me Some Credit](https://www.kaggle.com/c/GiveMeSomeCredit)**
-feature set — 10 independently auditable financial signals. The model is an
-XGBoost binary classifier (100 trees, depth 5) trained on 40k synthetic rows.
+feature set — 10 independently auditable financial signals. Scoring is a
+single OpenAI `gpt-4o-mini` call constrained by a strict JSON schema: the
+model is prompted as a senior underwriter with explicit scoring discipline
+(DebtRatio > 0.40 adds 0.12–0.25 to `prob_bad`, any 90-day late adds
+0.15–0.30, protected features locked at `contribution = 0.0`, etc.) and must
+return `verdict`, `prob_bad`, `confidence`, a fixed 10-row `reasons` array
+with one signed contribution per feature, and a one-sentence `summary`.
+Calls are disk-cached under `.llm-cache/` keyed on a canonicalized feature
+vector, so repeated demos of the same applicant are deterministic and free.
 
 | # | Feature | Meaning |
 |---|---|---|
@@ -330,12 +342,13 @@ XGBoost binary classifier (100 trees, depth 5) trained on 40k synthetic rows.
 | 9 | NumberOfTime60-89DaysPastDueNotWorse | Mid delinquencies |
 | 10 | NumberOfDependents | People depending on you |
 
-Decision rule: `approved = prob_bad < 0.5`. SHAP signs are flipped so
-positive contribution = pushed toward approval.
+Decision rule: `approved = prob_bad < 0.5`. Contribution signs are "positive
+contribution = pushed toward approval" by prompt convention.
 
 Both sides of the pipeline — LenderCo's intake scoring and Recourse's
-re-evaluation — load the shared model artifact via joblib and compare its
-SHA-256 at every call. Drift raises HTTP 409.
+re-evaluation — call through `shared.adapters.loans`, which hashes the
+model name + prompt version + JSON schema into a `model_version` SHA-256.
+Drift between the snapshot hash and the live adapter raises HTTP 409.
 
 ---
 
@@ -391,11 +404,14 @@ Hiring is ~7 commits of new code on top of a workflow that took ~3 weeks
 for loans. Validates the entire moat thesis: build the contestation
 pipeline once, drop in a new vertical with a new adapter.
 
-**Trade-off disclosure:** the "no data egress" claim narrows for hiring
-— resume + JD text go to OpenAI for scoring. Mitigations: structured
-output (no free-text leak), `temperature=0` deterministic, `.llm-cache`
-keeps repeated calls local, model_version pinned by SHA hash. Loans
-remains 100% local (XGBoost + GLM-OCR).
+**Trade-off disclosure:** the "no data egress" claim narrows for both
+verticals now that loans also scores via OpenAI — the 10-feature vector
+(loans) and the JD + resume text (hiring) both cross the boundary.
+Mitigations: structured JSON output (no free-text leak), `temperature=0`
+deterministic, `.llm-cache` keeps repeated calls local, `model_version`
+pinned by SHA-256 of `(model | prompt | schema)`. Document extraction
+remains 100% local (GLM-OCR + pdfplumber) — raw uploaded PDFs never leave
+the customer boundary.
 
 ---
 
@@ -405,9 +421,9 @@ Recourse is a contestation layer because automated decisions need them:
 
 - **GDPR Article 22(3)** — right to contest and obtain human intervention.
 - **EU AI Act Article 86** — right to explanation of individual decision-making.
-- **India DPDP Act 2023, §11** — right to a human in the loop.
+- **India DPDP Act 2023, Section 11** — right to a human in the loop.
 - **EU DSA Article 17** — content-removal statement of reasons + appeal.
-- **US FCRA §615**, **EEOC Uniform Guidelines**, **NYC Local Law 144**.
+- **US FCRA Section 615**, **EEOC Uniform Guidelines**, **NYC Local Law 144**.
 - **CJEU *Dun & Bradstreet Austria* (Feb 2025)** — meaningful explanation of
   automated credit decisions.
 

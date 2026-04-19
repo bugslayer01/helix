@@ -1,15 +1,14 @@
+"""Loans adapter — LLM-as-judge using shared.llm.loans_judge."""
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-import joblib
-import numpy as np
+from shared.llm import loans_judge
 
 from ._shared import (
     UNIVERSAL_CONTEST_REASONS,
     UNIVERSAL_REVIEW_REASONS,
-    file_sha256,
     load_json,
 )
 
@@ -74,43 +73,41 @@ class LoansAdapter:
     display_name = "Loan application"
 
     def __init__(self) -> None:
-        self._model_path = MODELS_DIR / "loans.pkl"
-        self._explainer_path = MODELS_DIR / "loans_explainer.pkl"
         self._meta = load_json(METADATA_DIR / "loans.json", {"contestability": {}})
         self._hints = load_json(METADATA_DIR / "loans_hints.json", {})
         self._medians = load_json(METADATA_DIR / "loans_medians.json", {})
-        self.model_version_hash = file_sha256(self._model_path)
-        self._model = joblib.load(self._model_path) if self._model_path.exists() else None
-        self._explainer = joblib.load(self._explainer_path) if self._explainer_path.exists() else None
+
+    @property
+    def model_version_hash(self) -> str:
+        return loans_judge.model_version()
 
     # ---- prediction -----------------------------------------------------
 
+    def _judge(self, features: dict[str, Any]) -> dict[str, Any]:
+        prior = features.get("_prior_decision")
+        rebuttals = features.get("_rebuttals") or []
+        if prior:
+            return loans_judge.judge_re_evaluation(features, prior, rebuttals)
+        return loans_judge.judge_initial(features)
+
     def predict(self, features: dict[str, Any]) -> dict[str, Any]:
         features = self._normalize(features)
-        x = self._vector(features)
-        if self._model is not None:
-            prob_bad = float(self._model.predict_proba(x)[0, 1])
-        else:
-            prob_bad = _heuristic_prob_bad(features)
-        approved = prob_bad < 0.5
+        d = self._judge(features)
+        prob_bad = round(float(d["prob_bad"]), 4)
         return {
-            "decision": "approved" if approved else "denied",
+            "decision": d["verdict"],
             "confidence": round(1.0 - prob_bad, 4),
-            "prob_bad": round(prob_bad, 4),
+            "prob_bad": prob_bad,
         }
 
     def explain(self, features: dict[str, Any]) -> list[dict[str, Any]]:
         features = self._normalize(features)
-        x = self._vector(features)
-        if self._explainer is not None:
-            raw = np.asarray(self._explainer.shap_values(x))[0]
-        else:
-            raw = np.zeros(len(FEATURE_ORDER))
-        # flip sign so "positive = pushes toward approval"
-        contributions = -raw
+        d = self._judge(features)
+        reason_by_feature = {r["feature"]: r for r in d.get("reasons", [])}
         meta = self._meta.get("contestability", {})
         rows: list[dict[str, Any]] = []
-        for i, name in enumerate(FEATURE_ORDER):
+        for name in FEATURE_ORDER:
+            r = reason_by_feature.get(name, {})
             m = meta.get(name, {})
             display = DISPLAY_VALUE.get(name, lambda v: str(v))(features.get(name, 0) or 0)
             rows.append(
@@ -119,9 +116,10 @@ class LoansAdapter:
                     "display_name": DISPLAY_NAMES[name],
                     "value": features.get(name),
                     "value_display": display,
-                    "contribution": float(round(contributions[i], 4)),
+                    "contribution": float(round(r.get("contribution", 0.0), 4)),
                     "contestable": bool(m.get("contestable", True)),
                     "protected": bool(m.get("protected", False)),
+                    "note": r.get("note", ""),
                 }
             )
         return rows
@@ -253,7 +251,7 @@ class LoansAdapter:
         }
 
     def legal_citations(self) -> list[str]:
-        return ["GDPR Art. 22(3)", "DPDP §11", "FCRA §615"]
+        return ["GDPR Art. 22(3)", "DPDP Section 11", "FCRA Section 615"]
 
     # ---- evidence seams -------------------------------------------------
 
@@ -385,13 +383,6 @@ class LoansAdapter:
                     pass
         return out
 
-    @staticmethod
-    def _vector(features: dict[str, Any]) -> np.ndarray:
-        return np.array(
-            [[float(features.get(k, 0) or 0) for k in FEATURE_ORDER]],
-            dtype=float,
-        )
-
 
 def _reverse_map(m: dict[str, str]) -> dict[str, str]:
     return {v: k for k, v in m.items()}
@@ -455,12 +446,3 @@ def _step_for(name: str) -> float:
         "DebtRatio": 1.0,
         "MonthlyIncome": 100.0,
     }.get(name, 1.0)
-
-
-def _heuristic_prob_bad(features: dict[str, Any]) -> float:
-    debt = float(features.get("DebtRatio", 0.4) or 0.4)
-    income = float(features.get("MonthlyIncome", 30000) or 30000)
-    late_30 = float(features.get("NumberOfTime30-59DaysPastDueNotWorse", 0) or 0)
-    late_90 = float(features.get("NumberOfTimes90DaysLate", 0) or 0)
-    score = 2.2 * (debt - 0.31) + 0.9 * late_30 + 2.4 * late_90 - 0.5 * (income / 60000)
-    return float(1.0 / (1.0 + np.exp(-score)))
