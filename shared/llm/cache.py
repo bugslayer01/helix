@@ -15,6 +15,7 @@ from typing import Any, Callable
 _SAFE_KEY = re.compile(r"^[a-zA-Z0-9_\-]+$")
 
 
+# Generate a unique hash key based on the input parts
 def make_key(*parts: str) -> str:
     h = hashlib.sha256()
     for p in parts:
