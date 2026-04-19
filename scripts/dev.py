@@ -49,7 +49,12 @@ class Service:
     public_url: str
 
 
-VENV_PY = REPO / "backend" / ".venv" / "bin" / "python"
+if sys.platform == "win32":
+    VENV_PY = REPO / "backend" / ".venv" / "Scripts" / "python.exe"
+else:
+    VENV_PY = REPO / "backend" / ".venv" / "bin" / "python"
+
+IS_WINDOWS = sys.platform == "win32"
 
 SERVICES: list[Service] = [
     Service(
@@ -73,7 +78,7 @@ SERVICES: list[Service] = [
     Service(
         tag="recourse-web",
         color=MAGENTA,
-        cmd=["npm", "run", "dev", "--silent"],
+        cmd=(["npm.cmd"] if IS_WINDOWS else ["npm"]) + ["run", "dev", "--silent"],
         cwd=REPO / "frontend",
         env_extra={},
         health_url=None,
@@ -82,7 +87,7 @@ SERVICES: list[Service] = [
     Service(
         tag="lender-web",
         color=BLUE,
-        cmd=["npm", "run", "dev", "--silent"],
+        cmd=(["npm.cmd"] if IS_WINDOWS else ["npm"]) + ["run", "dev", "--silent"],
         cwd=REPO / "customer_portal" / "frontend",
         env_extra={},
         health_url=None,
@@ -163,16 +168,19 @@ class Runner:
         env_base = os.environ.copy()
         for svc in self.services:
             env = {**env_base, **svc.env_extra}
-            p = subprocess.Popen(
-                svc.cmd,
+            popen_kwargs = dict(
                 cwd=str(svc.cwd),
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 bufsize=1,
                 text=True,
-                preexec_fn=os.setsid,
             )
+            if IS_WINDOWS:
+                popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+            else:
+                popen_kwargs["preexec_fn"] = os.setsid
+            p = subprocess.Popen(svc.cmd, **popen_kwargs)
             self.procs.append(p)
             threading.Thread(target=self._tail, args=(svc, p), daemon=True).start()
 
@@ -239,8 +247,11 @@ class Runner:
         for p in self.procs:
             if p.poll() is None:
                 try:
-                    os.killpg(os.getpgid(p.pid), signal.SIGTERM)
-                except ProcessLookupError:
+                    if IS_WINDOWS:
+                        p.send_signal(signal.CTRL_BREAK_EVENT)
+                    else:
+                        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+                except (ProcessLookupError, OSError):
                     pass
         deadline = time.time() + 6
         for p in self.procs:
@@ -249,8 +260,11 @@ class Runner:
         for p in self.procs:
             if p.poll() is None:
                 try:
-                    os.killpg(os.getpgid(p.pid), signal.SIGKILL)
-                except ProcessLookupError:
+                    if IS_WINDOWS:
+                        p.kill()
+                    else:
+                        os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+                except (ProcessLookupError, OSError):
                     pass
         ok("All services stopped.")
         return 0
