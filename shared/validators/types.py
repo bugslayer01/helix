@@ -42,3 +42,4 @@ class EvidenceContext:
     realistic_delta_multiplier: float
     prior_evidence_for_feature: list[dict[str, Any]]
     replay_index_hit: dict[str, Any] | None
+    extraction_source: str = ""

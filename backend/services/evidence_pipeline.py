@@ -152,6 +152,7 @@ def process_upload(
         realistic_delta_multiplier=delta_mult,
         prior_evidence_for_feature=prior_evidence_for_feature,
         replay_index_hit=replay_hit,
+        extraction_source=extraction.source,
     )
 
     report = run_shield(ctx)

@@ -30,9 +30,37 @@ def _extract_biggest_number(text: str) -> float | None:
     return best
 
 
+def _find_closest_number(text: str, target: float) -> float | None:
+    """Return the parseable number from ``text`` closest in magnitude to ``target``."""
+    if not text or target is None:
+        return None
+    closest: float | None = None
+    closest_dist = float("inf")
+    for m in _NUMBER.finditer(text):
+        raw = m.group(0).replace(",", "")
+        try:
+            v = float(raw)
+        except ValueError:
+            continue
+        if abs(v) < 1:
+            continue
+        dist = abs(v - target)
+        if dist < closest_dist:
+            closest_dist = dist
+            closest = v
+    return closest
+
+
 def check(ctx: EvidenceContext) -> CheckResult:
-    # If the router used the GLM path, fields come from the rendered read.
-    # Text-layer-only source means we can't diff — pass low.
+    # If extraction came from the pdfplumber template, the text layer IS the
+    # source — there's nothing to diverge from since GLM-OCR wasn't run.
+    if ctx.extraction_source.startswith("template"):
+        return CheckResult(
+            name="text_vs_render",
+            passed=True,
+            severity="low",
+            detail="Extraction sourced from PDF text layer; no rendered-vs-text divergence possible.",
+        )
     fields = ctx.extraction_fields or {}
     rendered_value = ctx.claimed_value
     if rendered_value is None:
@@ -42,7 +70,7 @@ def check(ctx: EvidenceContext) -> CheckResult:
             severity="low",
             detail="No numeric value to cross-check.",
         )
-    text_value = _extract_biggest_number(ctx.extraction_text_layer)
+    text_value = _find_closest_number(ctx.extraction_text_layer, rendered_value)
     if text_value is None:
         return CheckResult(
             name="text_vs_render",
