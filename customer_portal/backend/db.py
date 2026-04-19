@@ -9,6 +9,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_DB = _REPO_ROOT / "customer_portal" / "backend" / "lender.db"
 
 
+# Returns the Path object pointing to the database file
 def db_path() -> Path:
     return Path(os.environ.get("HELIX_LENDER_DB", _DEFAULT_DB))
 
