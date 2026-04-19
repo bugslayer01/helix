@@ -73,23 +73,28 @@ function ReasonCard({ reason }: { reason: ReasonRow }) {
       </div>
 
       {submitted.length === 0 ? (
-        <>
-          <div className="space-y-3">
-            <div>
-              <label className="label mb-2 block">Your rebuttal (text)</label>
-              <textarea
-                rows={3}
-                className="input min-h-[80px]"
-                placeholder={negative
-                  ? "Explain why this judgment is wrong, or what context the resume omitted."
-                  : "Optional: add nuance or evidence supporting this strength."}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-2">
+        <div className="rounded-lg border hairline bg-cream-soft/30 p-4 space-y-4">
+          <div>
+            <label className="flex items-center justify-between mb-2">
+              <span className="label">Your rebuttal</span>
+              <span className="text-[11px] text-ink-muted">{text.length} chars</span>
+            </label>
+            <textarea
+              rows={5}
+              className="block w-full rounded-md border hairline bg-surface px-3 py-2.5 text-[14px] leading-relaxed text-ink placeholder:text-ink-muted/60 focus:border-brand focus:outline-none focus:shadow-focus resize-y min-h-[120px]"
+              placeholder={negative
+                ? "Explain why this judgment is wrong, or what context the resume omitted. Be specific — cite roles, dates, projects, or numbers."
+                : "Optional: add nuance or evidence supporting this strength."}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="label mb-2 block">Supporting document (optional)</label>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
               <select
-                className="input text-sm"
+                className="input text-[13px] py-2"
                 value={docType}
                 onChange={(e) => setDocType(e.target.value)}
               >
@@ -102,21 +107,39 @@ function ReasonCard({ reason }: { reason: ReasonRow }) {
                 accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
                 onChange={(e) => { setFile(e.target.files?.[0] || null); e.target.value = ""; }}
               />
-              <button className="btn-ghost text-sm" disabled={busy} onClick={() => inputRef.current?.click()}>
-                {file ? `📎 ${file.name.slice(0, 24)}` : "Attach proof (optional)"}
-              </button>
-            </div>
-            <div className="flex items-center justify-end pt-1">
               <button
-                className="btn-primary"
-                disabled={busy || (!text.trim() && !file)}
-                onClick={submit}
+                type="button"
+                className={`inline-flex items-center justify-center gap-2 rounded-md border hairline px-4 py-2 text-[13px] transition-colors ${file ? "border-brand bg-brand-soft/40 text-brand" : "bg-surface text-ink-muted hover:text-brand hover:border-brand"}`}
+                disabled={busy}
+                onClick={() => inputRef.current?.click()}
               >
-                {busy ? <><span className="spinner" /> Submitting…</> : "Submit rebuttal →"}
+                {file ? <><span>📎</span><span className="mono truncate max-w-[180px]">{file.name}</span></> : <><span>📎</span><span>Attach file</span></>}
               </button>
             </div>
+            {file && (
+              <button
+                type="button"
+                className="mt-1 text-[11px] text-ink-muted hover:text-bad"
+                onClick={() => setFile(null)}
+              >
+                ✕ Remove attachment
+              </button>
+            )}
           </div>
-        </>
+
+          <div className="flex items-center justify-between pt-2 border-t hairline">
+            <div className="text-[11px] text-ink-muted">
+              {text.trim() || file ? "Ready to submit." : "Provide text, a file, or both."}
+            </div>
+            <button
+              className="btn-primary"
+              disabled={busy || (!text.trim() && !file)}
+              onClick={submit}
+            >
+              {busy ? <><span className="spinner" /> Submitting…</> : "Submit rebuttal →"}
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="space-y-3">
           {submitted.map((ev) => (
