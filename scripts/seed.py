@@ -34,6 +34,7 @@ from customer_portal.backend.services import intake, scorer  # noqa: E402
 CASES_DIR = REPO / "scripts" / "seed" / "loans" / "cases"
 
 
+# Helper function to compute the SHA-256 hash of a file
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
