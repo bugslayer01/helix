@@ -1,3 +1,4 @@
+"""Recourse FastAPI — port 8000."""
 from __future__ import annotations
 
 import sys
@@ -10,37 +11,42 @@ if str(_REPO_ROOT) not in sys.path:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes import audit, contest, evaluate, review
-from services import audit_log, evidence_store
+from backend import db
+from backend.routes import audit, contest, evidence, handoff, operator, review
 
 
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Recourse",
         description="Model decision contestation API",
-        version="0.1.0",
+        version="1.0.0",
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[
+            "http://localhost:5173",
+            "http://localhost:5174",
+        ],
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
     @app.on_event("startup")
-    def _init() -> None:
-        audit_log.init_db()
-        evidence_store.init_db()
+    def _startup() -> None:
+        db.init_db()
 
     @app.get("/health")
     def health() -> dict:
-        return {"status": "ok"}
+        return {"status": "ok", "service": "recourse", "version": "1.0.0"}
 
-    app.include_router(evaluate.router)
+    app.include_router(handoff.router)
+    app.include_router(evidence.router)
     app.include_router(contest.router)
-    app.include_router(review.router)
+    app.include_router(contest.revoke_router)
     app.include_router(audit.router)
-
+    app.include_router(operator.router)
+    app.include_router(review.router)
     return app
 
 

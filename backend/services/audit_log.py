@@ -1,112 +1,129 @@
-"""SQLite-backed tamper-evident audit log.
+"""SHA-256-chained audit log for Recourse contest cases.
 
-Each entry's hash covers the previous entry's hash + a canonical JSON
-serialization of the new entry, giving a forward-chained integrity trail.
+Each row's ``hash`` is ``sha256(prev_hash | case_id | ts | action | canonical_payload)``.
+A break anywhere in the chain is detectable by re-running :func:`verify`.
+
+The schema lives in :mod:`backend.db` together with every other Recourse table
+so the audit trail is part of the same WAL SQLite file as the case data it
+audits. This means ``make reset`` wipes everything atomically.
 """
-
 from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
-import threading
-import uuid
-from datetime import datetime, timezone
-from pathlib import Path
+import time
 from typing import Any
 
-DB_PATH = Path(__file__).resolve().parent.parent / "db" / "audit.db"
+from backend import db as _db
 
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS audit_entries (
-    id TEXT PRIMARY KEY,
-    case_id TEXT NOT NULL,
-    timestamp TEXT NOT NULL,
-    action TEXT NOT NULL,
-    title TEXT NOT NULL,
-    subtitle TEXT NOT NULL,
-    payload TEXT NOT NULL,
-    prev_hash TEXT NOT NULL,
-    hash TEXT NOT NULL,
-    kind TEXT NOT NULL DEFAULT 'info'
-);
-CREATE INDEX IF NOT EXISTS idx_case_ts ON audit_entries(case_id, timestamp);
-"""
-
-_lock = threading.Lock()
+GENESIS = "0" * 64
 
 
-def _conn() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, isolation_level=None)
-    conn.execute("PRAGMA journal_mode=WAL")
-    return conn
+def _canonical(payload: dict[str, Any]) -> str:
+    return json.dumps(payload or {}, sort_keys=True, separators=(",", ":"))
+
+
+def _tail(conn, case_id: str) -> str:
+    row = conn.execute(
+        "SELECT hash FROM audit_log WHERE case_id = ? ORDER BY id DESC LIMIT 1",
+        (case_id,),
+    ).fetchone()
+    return row["hash"] if row else GENESIS
+
+
+def _compute(prev_hash: str, case_id: str, ts: int, action: str, payload_json: str) -> str:
+    body = f"{prev_hash}|{case_id}|{ts}|{action}|{payload_json}"
+    return hashlib.sha256(body.encode()).hexdigest()
 
 
 def init_db() -> None:
-    with _conn() as c:
-        c.executescript(_SCHEMA)
-
-
-def _last_hash(c: sqlite3.Connection, case_id: str) -> str:
-    row = c.execute(
-        "SELECT hash FROM audit_entries WHERE case_id = ? ORDER BY timestamp DESC, id DESC LIMIT 1",
-        (case_id,),
-    ).fetchone()
-    return row[0] if row else "genesis"
+    _db.init_db()
 
 
 def append(
     case_id: str,
     action: str,
-    title: str,
-    subtitle: str,
     payload: dict[str, Any] | None = None,
+    *,
+    title: str | None = None,
+    subtitle: str | None = None,
     kind: str = "info",
 ) -> dict[str, Any]:
-    entry_id = str(uuid.uuid4())
-    ts = datetime.now(timezone.utc).isoformat()
-    payload_str = json.dumps(payload or {}, sort_keys=True, separators=(",", ":"))
-    with _lock, _conn() as c:
-        prev = _last_hash(c, case_id)
-        h = hashlib.sha256(
-            f"{prev}|{case_id}|{ts}|{action}|{payload_str}".encode()
-        ).hexdigest()
+    """Append a chained audit row and return the canonical record.
+
+    ``title``/``subtitle``/``kind`` are folded into ``payload`` under a ``_display``
+    key so older callers keep working without a second table column.
+    """
+    merged = dict(payload or {})
+    display: dict[str, Any] = {}
+    if title:
+        display["title"] = title
+    if subtitle:
+        display["subtitle"] = subtitle
+    if kind and kind != "info":
+        display["kind"] = kind
+    if display:
+        merged["_display"] = display
+
+    ts = int(time.time())
+    body = _canonical(merged)
+    with _db.conn() as c:
+        prev_hash = _tail(c, case_id)
+        h = _compute(prev_hash, case_id, ts, action, body)
         c.execute(
-            "INSERT INTO audit_entries (id, case_id, timestamp, action, title, subtitle, payload, prev_hash, hash, kind) VALUES (?,?,?,?,?,?,?,?,?,?)",
-            (entry_id, case_id, ts, action, title, subtitle, payload_str, prev, h, kind),
+            "INSERT INTO audit_log (case_id, action, payload_json, prev_hash, hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (case_id, action, body, prev_hash, h, ts),
         )
     return {
-        "id": entry_id,
         "case_id": case_id,
-        "timestamp": ts,
         "action": action,
-        "title": title,
-        "subtitle": subtitle,
-        "hash": f"0x{h[:12]}",
-        "full_hash": h,
-        "prev_hash": prev,
-        "kind": kind,
+        "payload": merged,
+        "prev_hash": prev_hash,
+        "hash": h,
+        "created_at": ts,
     }
 
 
 def list_for_case(case_id: str) -> list[dict[str, Any]]:
-    with _conn() as c:
+    with _db.conn() as c:
         rows = c.execute(
-            "SELECT id, case_id, timestamp, action, title, subtitle, hash, kind FROM audit_entries WHERE case_id = ? ORDER BY timestamp ASC, id ASC",
+            "SELECT id, action, payload_json, prev_hash, hash, created_at FROM audit_log WHERE case_id = ? ORDER BY id",
             (case_id,),
         ).fetchall()
-    return [
-        {
-            "id": r[0],
-            "case_id": r[1],
-            "timestamp": r[2],
-            "action": r[3],
-            "title": r[4],
-            "subtitle": r[5],
-            "hash": f"0x{r[6][:12]}",
-            "full_hash": r[6],
-            "kind": r[7],
-        }
-        for r in rows
-    ]
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        payload = json.loads(r["payload_json"] or "{}")
+        display = payload.pop("_display", {}) if isinstance(payload, dict) else {}
+        out.append(
+            {
+                "id": r["id"],
+                "case_id": case_id,
+                "action": r["action"],
+                "payload": payload,
+                "title": display.get("title"),
+                "subtitle": display.get("subtitle"),
+                "kind": display.get("kind", "info"),
+                "hash": f"0x{r['hash'][:12]}",
+                "full_hash": r["hash"],
+                "prev_hash": r["prev_hash"],
+                "created_at": r["created_at"],
+            }
+        )
+    return out
+
+
+def verify(case_id: str) -> dict[str, Any]:
+    with _db.conn() as c:
+        rows = c.execute(
+            "SELECT id, action, payload_json, prev_hash, hash, created_at FROM audit_log WHERE case_id = ? ORDER BY id",
+            (case_id,),
+        ).fetchall()
+    if not rows:
+        return {"ok": True, "rows": 0, "head": None}
+    prev = GENESIS
+    for row in rows:
+        expected = _compute(prev, case_id, row["created_at"], row["action"], row["payload_json"])
+        if expected != row["hash"] or row["prev_hash"] != prev:
+            return {"ok": False, "broken_at_row": row["id"], "rows": len(rows)}
+        prev = row["hash"]
+    return {"ok": True, "rows": len(rows), "head": prev}
