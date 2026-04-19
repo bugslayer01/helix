@@ -6,6 +6,7 @@ from .types import CheckResult, EvidenceContext
 _MAX_RELATIVE_DIFF = 0.05  # 5%
 
 
+# Validate that values across multiple documents are consistent
 def check(ctx: EvidenceContext) -> CheckResult:
     if ctx.claimed_value is None or not ctx.prior_evidence_for_feature:
         return CheckResult(
