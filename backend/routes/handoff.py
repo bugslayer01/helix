@@ -72,6 +72,14 @@ def session_info(session: dict = Depends(require_session)) -> dict:
     }
 
 
+@router.post("/logout")
+def logout(request: Request, response: Response) -> dict:
+    sid = request.cookies.get("hx_session")
+    handoff_svc.end_session(sid or "")
+    response.delete_cookie("hx_session")
+    return {"status": "logged_out"}
+
+
 def _humanize(code: str) -> str:
     mapping = {
         "handoff_expired": "This contest link has expired. Request a fresh one from your lender.",

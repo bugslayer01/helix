@@ -19,14 +19,14 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b hairline bg-cream/92 backdrop-blur">
-      <div className="mx-auto flex max-w-shell items-center justify-between gap-6 px-6 py-4 lg:gap-10 lg:px-8">
-        <div className="flex items-center gap-3">
-          <div aria-hidden className="flex h-8 w-8 items-center justify-center rounded-full bg-ink">
+      <div className="mx-auto flex max-w-shell items-center justify-between gap-3 px-4 py-3 sm:gap-6 sm:px-6 sm:py-4 lg:gap-10 lg:px-8">
+        <div className="flex items-center gap-3 min-w-0">
+          <div aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink">
             <div className="h-2.5 w-2.5 rounded-full bg-cream" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="display text-lg leading-none">Recourse</div>
-            <div className="mt-1 text-[11px] uppercase leading-none tracking-[0.18em] text-ink-muted">
+            <div className="mt-1 hidden sm:block text-[11px] uppercase leading-none tracking-[0.18em] text-ink-muted">
               Independent contestation portal
             </div>
           </div>

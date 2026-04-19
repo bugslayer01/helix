@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useStore } from "../store";
 import { ShapBars } from "./ShapBars";
+import * as api from "../lib/api";
 
 export function OutcomeView() {
   const outcome = useStore((s) => s.outcome);
@@ -116,7 +117,17 @@ export function OutcomeView() {
       </div>
 
       <div className="flex items-center gap-3 border-t hairline pt-6">
-        <button className="btn-ghost" onClick={() => { reset(); window.location.search = ""; }}>Start over</button>
+        <button
+          className="btn-ghost"
+          onClick={async () => {
+            try { await api.logout(); } catch { /* tolerate */ }
+            reset();
+            window.location.href = "/";
+          }}
+        >
+          Sign out
+        </button>
+        <span className="text-[12px] text-ink-muted">Sign-out ends this session and removes the cookie. The audit chain stays.</span>
       </div>
     </section>
   );

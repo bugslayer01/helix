@@ -25,12 +25,30 @@ _ALG = "HS256"
 _DEFAULT_TTL_HOURS = 24
 
 
+def _is_prod() -> bool:
+    return os.environ.get("HELIX_ENV", "").lower() in {"prod", "production", "staging"}
+
+
+class InsecureSecretError(RuntimeError):
+    """Raised when default dev secrets are still active in a non-dev environment."""
+
+
 def _jwt_secret() -> str:
-    return os.environ.get("HELIX_JWT_SECRET", _DEV_JWT_SECRET)
+    secret = os.environ.get("HELIX_JWT_SECRET", _DEV_JWT_SECRET)
+    if _is_prod() and secret == _DEV_JWT_SECRET:
+        raise InsecureSecretError(
+            "HELIX_JWT_SECRET is unset in a non-dev environment. Refusing to sign or verify with the default dev secret."
+        )
+    return secret
 
 
 def _webhook_secret() -> str:
-    return os.environ.get("HELIX_WEBHOOK_SECRET", _DEV_WEBHOOK_SECRET)
+    secret = os.environ.get("HELIX_WEBHOOK_SECRET", _DEV_WEBHOOK_SECRET)
+    if _is_prod() and secret == _DEV_WEBHOOK_SECRET:
+        raise InsecureSecretError(
+            "HELIX_WEBHOOK_SECRET is unset in a non-dev environment. Refusing to sign or verify with the default dev secret."
+        )
+    return secret
 
 
 @dataclass(frozen=True)

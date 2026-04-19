@@ -1,17 +1,18 @@
-"""Train an XGBoost credit-risk classifier on a synthetic dataset.
+"""Train an XGBoost credit-risk classifier.
 
-Prefers the real Give Me Some Credit CSV at `data/cs-training.csv` if present.
-Falls back to a synthetic generator calibrated to flag DebtRatio and
-payment-history features, which is enough for the demo's SHAP story.
+Prefers real ``data/cs-training.csv`` (the public Give Me Some Credit dataset)
+when present; falls back to a stronger synthetic generator with sharper
+class separation tuned to make SHAP signs intuitive.
 
-Running this script writes:
-  models/loans.pkl            — the trained XGBoost booster (via joblib)
-  models/loans_explainer.pkl  — a fitted shap.TreeExplainer
-  models/metadata/loans_medians.json — approved-applicant medians per feature
-  models/metadata/loans_hints.json   — pre-computed counterfactual hints per seed case
+Outputs:
+  models/loans.pkl                — trained XGBoost (calibrated via Platt)
+  models/loans_explainer.pkl      — fitted shap.TreeExplainer (raw booster)
+  models/metadata/loans_medians.json — population medians (per feature)
+  models/metadata/loans_hints.json   — counterfactual hints per case (read from
+                                       scripts/seed/loans/cases/case*.json)
 
-Run from the `backend/` directory:
-    .venv/bin/python -m models.train_loans
+Run:
+    backend/.venv/bin/python -m shared.models.train_loans
 """
 
 from __future__ import annotations
@@ -24,20 +25,24 @@ import joblib
 import numpy as np
 import pandas as pd
 import shap
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
 from xgboost import XGBClassifier
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-DATA_CSV = ROOT / "data" / "cs-training.csv"
+REPO = ROOT.parent
+DATA_CSV = REPO / "data" / "cs-training.csv"
 OUT_MODEL = HERE / "loans.pkl"
 OUT_EXPLAINER = HERE / "loans_explainer.pkl"
 META_DIR = HERE / "metadata"
 OUT_MEDIANS = META_DIR / "loans_medians.json"
 OUT_HINTS = META_DIR / "loans_hints.json"
+CASES_DIR = REPO / "scripts" / "seed" / "loans" / "cases"
 
 
-# Keep this in sync with adapters/loans.py FEATURE_ORDER.
+# Keep this in sync with shared/adapters/loans.py FEATURE_ORDER.
 FEATURE_ORDER = [
     "RevolvingUtilizationOfUnsecuredLines",
     "age",
@@ -63,30 +68,40 @@ def _load_real() -> pd.DataFrame | None:
     return df[FEATURE_ORDER + ["y"]]
 
 
-def _synth(n: int = 40_000, seed: int = 7) -> pd.DataFrame:
-    """Generate a synthetic dataset with realistic-ish credit structure."""
+def _synth(n: int = 60_000, seed: int = 7) -> pd.DataFrame:
+    """Stronger synthetic dataset.
+
+    Compared to the previous version: clearer linear signal on the three demo
+    features (revolving utilization, debt ratio, monthly income), heavier
+    coefficients, less noise. This keeps SHAP signs intuitive on common
+    feature vectors instead of being dominated by interaction effects.
+    """
     rng = np.random.default_rng(seed)
     age = rng.integers(21, 72, size=n)
-    income = np.clip(rng.lognormal(mean=10.8, sigma=0.55, size=n), 8_000, 500_000)
+    income = np.clip(rng.lognormal(mean=10.7, sigma=0.45, size=n), 8_000, 500_000)
     dependents = rng.integers(0, 5, size=n)
-    revolving = np.clip(rng.beta(2, 3, size=n) * 1.1, 0, 1.5)
-    debt_ratio = np.clip(rng.beta(2, 4, size=n) * 1.2, 0, 2.0)
+    revolving = np.clip(rng.beta(2.5, 3, size=n) * 1.05, 0, 1.5)
+    debt_ratio = np.clip(rng.beta(2.5, 4, size=n) * 1.1, 0, 2.0)
     open_lines = rng.integers(0, 18, size=n)
     real_estate = rng.integers(0, 4, size=n)
-    late30 = rng.choice([0, 1, 2, 3], size=n, p=[0.72, 0.18, 0.07, 0.03])
-    late60 = rng.choice([0, 1, 2], size=n, p=[0.90, 0.08, 0.02])
-    late90 = rng.choice([0, 1, 2], size=n, p=[0.94, 0.05, 0.01])
+    late30 = rng.choice([0, 1, 2, 3], size=n, p=[0.74, 0.17, 0.06, 0.03])
+    late60 = rng.choice([0, 1, 2], size=n, p=[0.91, 0.07, 0.02])
+    late90 = rng.choice([0, 1, 2], size=n, p=[0.95, 0.04, 0.01])
 
-    # Latent risk driven by the fields we want SHAP to highlight.
+    # Latent risk: stronger weights on the three contestable features so SHAP
+    # tells a clean story for those. Income enters log-transformed.
     score = (
-        2.2 * (debt_ratio - 0.31)
-        + 1.7 * (revolving - 0.30)
-        + 0.9 * late30
-        + 1.6 * late60
-        + 2.4 * late90
-        - 0.5 * np.log1p(income / 20_000)
-        + 0.2 * (open_lines / 5)
+        3.5 * (revolving - 0.30)
+        + 3.2 * (debt_ratio - 0.31)
+        - 1.4 * np.log1p(income / 25_000)
+        + 1.1 * late30
+        + 2.0 * late60
+        + 3.0 * late90
+        + 0.18 * (open_lines / 5)
+        + 0.04 * dependents
     )
+    # Add a small noise term so the model isn't perfectly separable.
+    score += rng.normal(scale=0.55, size=n)
     prob_bad = 1.0 / (1.0 + np.exp(-score))
     y = (rng.random(n) < prob_bad).astype(int)
 
@@ -107,10 +122,27 @@ def _synth(n: int = 40_000, seed: int = 7) -> pd.DataFrame:
     )
 
 
-def _precompute_hints(model: XGBClassifier, df_approved: pd.DataFrame) -> dict:
-    from seed_cases import SEED_CASES  # local import avoids circular load
+def _load_seed_cases() -> dict[str, dict]:
+    """Read every case.json under scripts/seed/loans/cases/ for hint precompute."""
+    out: dict[str, dict] = {}
+    if not CASES_DIR.exists():
+        return out
+    for d in sorted(CASES_DIR.iterdir()):
+        case_json = d / "case.json"
+        if case_json.exists():
+            try:
+                spec = json.loads(case_json.read_text())
+                if "intake_features" in spec and "application_id" in spec:
+                    out[spec["application_id"]] = spec
+            except Exception:
+                continue
+    return out
 
-    hints: dict[str, list[dict]] = {}
+
+def _precompute_hints(df_approved: pd.DataFrame) -> dict[str, list[dict]]:
+    cases = _load_seed_cases()
+    if not cases:
+        return {}
     contestable = [
         "DebtRatio",
         "MonthlyIncome",
@@ -118,16 +150,17 @@ def _precompute_hints(model: XGBClassifier, df_approved: pd.DataFrame) -> dict:
         "NumberOfTime30-59DaysPastDueNotWorse",
     ]
     evidence_for = {
-        "DebtRatio": "loan_payoff_receipt",
-        "MonthlyIncome": "pay_stub",
-        "RevolvingUtilizationOfUnsecuredLines": "credit_card_statement",
-        "NumberOfTime30-59DaysPastDueNotWorse": "payment_history",
+        "DebtRatio": "loan_payoff_letter",
+        "MonthlyIncome": "payslip",
+        "RevolvingUtilizationOfUnsecuredLines": "credit_report",
+        "NumberOfTime30-59DaysPastDueNotWorse": "credit_report",
     }
-    for case_id, case in SEED_CASES.items():
+    hints: dict[str, list[dict]] = {}
+    for case_id, spec in cases.items():
         cfs: list[dict] = []
         for feat in contestable:
             approved_median = float(df_approved[feat].median())
-            current = float(case["features"].get(feat, 0))
+            current = float(spec["intake_features"].get(feat, 0))
             if abs(approved_median - current) < 1e-6:
                 continue
             cfs.append(
@@ -157,35 +190,42 @@ def main() -> None:
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
-    model = XGBClassifier(
-        n_estimators=100,
-        max_depth=5,
-        learning_rate=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
+    base = XGBClassifier(
+        n_estimators=180,
+        max_depth=4,
+        learning_rate=0.08,
+        subsample=0.85,
+        colsample_bytree=0.85,
+        min_child_weight=4,
+        reg_lambda=1.0,
         random_state=42,
         eval_metric="logloss",
         tree_method="hist",
     )
-    model.fit(X_train, y_train)
-    score = model.score(X_test, y_test)
-    print(f"[train_loans] test accuracy = {score:.3f}", file=sys.stderr)
+    base.fit(X_train, y_train)
+    raw_probs = base.predict_proba(X_test)[:, 1]
+    raw_auc = roc_auc_score(y_test, raw_probs)
 
-    explainer = shap.TreeExplainer(model)
+    # Wrap in Platt scaling so prob_bad is properly calibrated.
+    calibrated = CalibratedClassifierCV(base, cv="prefit", method="sigmoid")
+    calibrated.fit(X_train, y_train)
+    cal_probs = calibrated.predict_proba(X_test)[:, 1]
+    cal_auc = roc_auc_score(y_test, cal_probs)
+    cal_acc = (cal_probs >= 0.5).astype(int).eq(y_test.reset_index(drop=True)).mean() if hasattr(cal_probs, 'eq') else float(((cal_probs >= 0.5).astype(int) == y_test.values).mean())
+    print(f"[train_loans] raw AUROC={raw_auc:.3f}  calibrated AUROC={cal_auc:.3f}  acc@0.5={cal_acc:.3f}", file=sys.stderr)
 
-    joblib.dump(model, OUT_MODEL)
+    explainer = shap.TreeExplainer(base)
+
+    joblib.dump(calibrated, OUT_MODEL)
     joblib.dump(explainer, OUT_EXPLAINER)
     print(f"[train_loans] wrote {OUT_MODEL.name} + {OUT_EXPLAINER.name}", file=sys.stderr)
 
-    # Approved-applicant medians for novel-input fallback.
     approved = df[df["y"] == 0]
     medians = {k: float(round(approved[k].median(), 4)) for k in FEATURE_ORDER}
     with OUT_MEDIANS.open("w") as f:
         json.dump(medians, f, indent=2)
 
-    # Counterfactual hints per seed case.
-    sys.path.insert(0, str(ROOT))
-    hints = _precompute_hints(model, approved)
+    hints = _precompute_hints(approved)
     with OUT_HINTS.open("w") as f:
         json.dump(hints, f, indent=2)
 

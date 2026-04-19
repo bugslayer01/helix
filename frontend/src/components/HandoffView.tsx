@@ -70,10 +70,10 @@ export function HandoffView() {
       <div className="label mb-3">Secure handoff</div>
       <h1 className="display text-4xl leading-[1.1] mb-3">Confirm it's you.</h1>
       <p className="text-ink-muted mb-8">
-        Your lender passed us a signed token identifying you as
-        <span className="mono px-1">{preview?.applicant_id}</span>
-        for case
-        <span className="mono px-1">{preview?.case_id}</span>.
+        Your lender passed us a signed token identifying you as{" "}
+        <span className="mono">{preview?.applicant_id}</span>
+        {" "}for case{" "}
+        <span className="mono">{preview?.case_id}</span>.{" "}
         Enter your date of birth to prove you're the person on the
         application. Link expires in {hoursLeft}h.
       </p>

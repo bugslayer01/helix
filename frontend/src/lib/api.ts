@@ -133,6 +133,10 @@ export async function previewHandoff(token: string): Promise<HandoffPreview> {
   return call("/contest/session/preview", { method: "POST", body: JSON.stringify({ token }) });
 }
 
+export async function logout(): Promise<void> {
+  await call("/contest/logout", { method: "POST" });
+}
+
 export async function openContest(token: string, dob: string): Promise<ContestOpenResp> {
   return call("/contest/open", { method: "POST", body: JSON.stringify({ token, dob }) });
 }

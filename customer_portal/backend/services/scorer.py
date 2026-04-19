@@ -22,14 +22,24 @@ def score(domain: str, features: dict[str, Any]) -> dict[str, Any]:
 
 
 def _top_reasons(shap: list[dict[str, Any]], verdict: str, k: int = 3) -> list[str]:
+    """Return the top ``k`` features that *drove the outcome*.
+
+    Convention from ``shared.adapters.loans``: positive contribution = pushed
+    toward approval, negative = pushed toward denial. So a denied case's
+    "reasons" are the most-negative contributors; an approved case's
+    "reasons" are the most-positive ones.
+    """
     if not shap:
         return []
-    # Sort by the direction that drove the outcome.
-    sign = -1 if verdict == "denied" else 1
-    ranked = sorted(
-        (r for r in shap if not r.get("protected")),
-        key=lambda r: sign * r.get("contribution", 0),
-    )
+    candidates = [r for r in shap if not r.get("protected")]
+    if not candidates:
+        return []
+    if verdict == "denied":
+        # Ascending by contribution: most-negative first.
+        ranked = sorted(candidates, key=lambda r: r.get("contribution", 0))
+    else:
+        # Descending by contribution: most-positive first.
+        ranked = sorted(candidates, key=lambda r: r.get("contribution", 0), reverse=True)
     reasons: list[str] = []
     for row in ranked[:k]:
         display_name = row.get("display_name") or row.get("feature")

@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from backend import db as _db
+from backend.services import audit_log
 from shared.jwt_utils import HandoffClaims, HandoffError, verify_handoff
 
 _CASE_SALT = "helix-demo-salt"  # must match LenderCo
@@ -119,6 +120,20 @@ def open_contest_session(*, token: str, dob: str) -> dict[str, Any]:
             (session_id, case_id, claims.jti, now, now + _session_ttl()),
         )
 
+    audit_log.append(
+        case_id,
+        "case_opened",
+        {
+            "issuer": claims.iss,
+            "external_case_id": claims.case_id,
+            "applicant_display": snapshot["applicant"]["display_name"],
+            "model_version": snapshot["model_version"],
+            "snapshot_decision": snapshot["decision"],
+        },
+        title="Contest opened",
+        subtitle=f"JWT verified · DOB matched · session issued",
+    )
+
     return {
         "session_id": session_id,
         "case_id": case_id,
@@ -154,11 +169,43 @@ def load_case(case_id: str) -> dict[str, Any] | None:
     return dict(row)
 
 
-def revoke(external_case_id: str, customer_id: str = "lenderco") -> bool:
+def revoke(external_case_id: str, customer_id: str = "lenderco", reason: str | None = None) -> bool:
     now = int(time.time())
     with _db.conn() as c:
-        result = c.execute(
-            "UPDATE contest_cases SET status = 'revoked', closed_at = ? WHERE customer_id = ? AND external_case_id = ?",
-            (now, customer_id, external_case_id),
+        row = c.execute(
+            "SELECT id FROM contest_cases WHERE customer_id = ? AND external_case_id = ?",
+            (customer_id, external_case_id),
+        ).fetchone()
+        if not row:
+            return False
+        c.execute(
+            "UPDATE contest_cases SET status = 'revoked', closed_at = ? WHERE id = ?",
+            (now, row["id"]),
         )
-    return result.rowcount > 0
+    audit_log.append(
+        row["id"],
+        "case_revoked",
+        {"reason": reason, "customer_id": customer_id, "external_case_id": external_case_id},
+        title="Case revoked",
+        subtitle=f"reason: {reason or 'unspecified'}",
+    )
+    return True
+
+
+def end_session(session_id: str) -> bool:
+    """End a contest session (logout)."""
+    if not session_id:
+        return False
+    with _db.conn() as c:
+        row = c.execute("SELECT case_id FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        if not row:
+            return False
+        c.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+    audit_log.append(
+        row["case_id"],
+        "session_closed",
+        {"session_id": session_id},
+        title="Session ended",
+        subtitle="applicant signed out",
+    )
+    return True

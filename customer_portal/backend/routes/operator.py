@@ -12,6 +12,7 @@ router = APIRouter(prefix="/api/v1/operator", tags=["operator"])
 
 @router.get("/cases")
 def list_cases(limit: int = 50) -> dict:
+    """Return one row per application showing its latest decision."""
     with db.conn() as c:
         rows = c.execute(
             """
@@ -20,7 +21,12 @@ def list_cases(limit: int = 50) -> dict:
                    d.verdict, d.prob_bad, d.source, d.decided_at AS decision_at
             FROM applications a
             JOIN applicants ap ON ap.id = a.applicant_id
-            LEFT JOIN decisions d ON d.application_id = a.id
+            LEFT JOIN decisions d ON d.id = (
+                SELECT id FROM decisions
+                 WHERE application_id = a.id
+                 ORDER BY decided_at DESC, rowid DESC
+                 LIMIT 1
+            )
             ORDER BY a.submitted_at DESC
             LIMIT ?
             """,

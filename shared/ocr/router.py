@@ -8,9 +8,14 @@ Order:
 Callers supply a ``doc_type`` (payslip / bank_statement / credit_report) and a JSON
 schema describing the fields to extract. The router attaches both the extracted
 fields AND the raw text layer (for downstream tamper checks).
+
+Set ``HELIX_OCR_FORCE_GLM=1`` (env) to skip the template fast path entirely so
+the tamper check (text-vs-render) actually exercises GLM-OCR on every upload.
+Useful for demos where you want the Evidence Shield to fully fire.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -19,6 +24,10 @@ from . import extract as glm
 from . import templates
 
 _TEMPLATE_CONFIDENCE_THRESHOLD = 0.67
+
+
+def _force_glm() -> bool:
+    return os.environ.get("HELIX_OCR_FORCE_GLM", "").lower() in {"1", "true", "yes", "on"}
 
 
 @dataclass
@@ -90,7 +99,7 @@ def extract(
     """Return an ``ExtractionResult`` for ``path`` assuming ``expected_doc_type``."""
     text_layer = templates.extract_text_layer(path)
 
-    if not force_glm:
+    if not (force_glm or _force_glm()):
         fast = templates.try_parse(path, expected_doc_type)
         if fast.confidence >= _TEMPLATE_CONFIDENCE_THRESHOLD:
             return ExtractionResult(

@@ -1,12 +1,12 @@
 {
-  "RevolvingUtilizationOfUnsecuredLines": 0.3772,
+  "RevolvingUtilizationOfUnsecuredLines": 0.3981,
   "age": 46.0,
   "NumberOfTime30-59DaysPastDueNotWorse": 0.0,
-  "DebtRatio": 0.3201,
-  "MonthlyIncome": 51702.0527,
+  "DebtRatio": 0.3546,
+  "MonthlyIncome": 47934.2093,
   "NumberOfOpenCreditLinesAndLoans": 8.0,
   "NumberOfTimes90DaysLate": 0.0,
-  "NumberRealEstateLoansOrLines": 1.0,
+  "NumberRealEstateLoansOrLines": 2.0,
   "NumberOfTime60-89DaysPastDueNotWorse": 0.0,
   "NumberOfDependents": 2.0
 }
