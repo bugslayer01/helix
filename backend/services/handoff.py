@@ -109,12 +109,12 @@ def open_contest_session(*, token: str, dob: str) -> dict[str, Any]:
                     now,
                 ),
             )
-        # single-use jti (within Recourse — user can hit DOB wrong once and retry
-        # because we insert only after snapshot + DOB succeeded).
-        already = c.execute("SELECT 1 FROM used_jti WHERE jti = ?", (claims.jti,)).fetchone()
-        if already:
-            raise HandoffError("jti_already_consumed")
-        c.execute("INSERT INTO used_jti (jti, consumed_at) VALUES (?, ?)", (claims.jti, now))
+        # Record the jti consumption for audit purposes, but do NOT enforce
+        # single-use. DOB 2FA + JWT exp already block the realistic threat
+        # (forwarded URL theft); single-use just made re-entry after refresh
+        # / sign-out a footgun. Multiple session rows per jti are fine — each
+        # is its own cookie, all bound to the same case.
+        c.execute("INSERT OR IGNORE INTO used_jti (jti, consumed_at) VALUES (?, ?)", (claims.jti, now))
         c.execute(
             "INSERT INTO sessions (id, case_id, jti, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
             (session_id, case_id, claims.jti, now, now + _session_ttl()),
