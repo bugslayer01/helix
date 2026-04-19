@@ -69,6 +69,7 @@ def _summarize(overall: Overall, checks: list[CheckResult]) -> str:
     return f"Rejected due to {names}."
 
 
+# Runs all registered validators against the given evidence context
 def run_shield(ctx: EvidenceContext) -> ValidationReport:
     results: list[CheckResult] = []
     for _, fn in _CHECKS:
