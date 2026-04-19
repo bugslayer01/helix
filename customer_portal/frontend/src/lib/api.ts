@@ -1,5 +1,6 @@
 const BASE = "/api/v1";
 
+// Generic HTTP request helper utilizing standard fetch API
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
