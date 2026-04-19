@@ -5,6 +5,8 @@ import { useApp } from "./store_app";
 import { Header } from "./components/Header";
 import { PickerView } from "./components/PickerView";
 import { DecisionView } from "./components/DecisionView";
+import { NewLoanApplicationView } from "./components/NewLoanApplicationView";
+import { LoanDocsUploadView } from "./components/LoanDocsUploadView";
 import { OperatorView } from "./components/OperatorView";
 import { PostingsView } from "./components/hiring/PostingsView";
 import { NewPostingView } from "./components/hiring/NewPostingView";
@@ -33,7 +35,10 @@ export function App() {
            hiringStage === "candidateUpload" ? <CandidateUploadView /> :
            <HiringDecisionView />
          ) : (
-           stage === "picker" ? <PickerView /> : <DecisionView />
+           stage === "picker" ? <PickerView /> :
+           stage === "intake_form" ? <NewLoanApplicationView /> :
+           stage === "intake_docs" ? <LoanDocsUploadView /> :
+           <DecisionView />
          )}
       </div>
       <footer className="border-t hairline mt-16 py-6 text-center text-[11px] text-ink-muted">

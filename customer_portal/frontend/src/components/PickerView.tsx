@@ -6,12 +6,18 @@ export function PickerView() {
   const loadCases = useStore((s) => s.loadCases);
   const pick = useStore((s) => s.pickCase);
   const busy = useStore((s) => s.busy);
+  const startNewApplication = useStore((s) => s.startNewApplication);
 
   useEffect(() => { loadCases(); }, []);
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-14">
-      <div className="label mb-3">Demo applicants</div>
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="label">Demo applicants</div>
+        <button className="btn-primary text-[13px] py-1.5" onClick={() => startNewApplication()}>
+          + New loan application
+        </button>
+      </div>
       <h1 className="display text-4xl leading-[1.05] mb-3">
         Pick a case to see what the model said.
       </h1>
