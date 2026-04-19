@@ -1,0 +1,86 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+
+  --c-bg-rgb: 247 243 234;
+  --c-bg-soft-rgb: 240 234 221;
+  --c-surface-rgb: 255 255 255;
+  --c-ink-rgb: 15 34 32;
+  --c-ink-muted-rgb: 93 111 108;
+  --c-line-rgb: 220 216 204;
+
+  /* LenderCo brand: deep teal (distinct from Recourse terracotta) */
+  --c-brand-rgb: 14 74 68;
+  --c-brand-soft-rgb: 203 226 220;
+
+  --c-accent-rgb: 14 74 68;
+  --c-accent-soft-rgb: 203 226 220;
+  --c-good-rgb: 47 104 75;
+  --c-good-soft-rgb: 212 232 220;
+  --c-bad-rgb: 176 60 37;
+  --c-bad-soft-rgb: 236 215 208;
+  --c-warn-rgb: 168 120 41;
+  --c-focus-ring-rgb: 14 74 68;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --c-bg-rgb: 12 19 18;
+  --c-bg-soft-rgb: 18 26 24;
+  --c-surface-rgb: 20 30 28;
+  --c-ink-rgb: 230 237 234;
+  --c-ink-muted-rgb: 157 173 168;
+  --c-line-rgb: 34 48 45;
+
+  --c-brand-rgb: 107 184 171;
+  --c-brand-soft-rgb: 27 45 42;
+
+  --c-accent-rgb: 107 184 171;
+  --c-accent-soft-rgb: 27 45 42;
+  --c-good-rgb: 148 196 164;
+  --c-good-soft-rgb: 26 48 36;
+  --c-bad-rgb: 226 134 112;
+  --c-bad-soft-rgb: 59 36 29;
+  --c-warn-rgb: 215 175 117;
+  --c-focus-ring-rgb: 234 240 238;
+}
+
+@layer base {
+  html, body, #root { min-height: 100vh; background: rgb(var(--c-bg-rgb)); color: rgb(var(--c-ink-rgb)); font-family: "Inter", system-ui, sans-serif; font-size: 17px; line-height: 1.6; }
+  .display { font-family: "Fraunces", Georgia, serif; letter-spacing: -0.015em; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .hairline { border-color: rgb(var(--c-line-rgb)); }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-brand px-5 py-2.5 text-sm font-medium text-surface transition-all hover:bg-brand/90 focus-visible:shadow-focus disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border hairline bg-surface px-4 py-2 text-sm text-ink transition-colors hover:border-brand hover:text-brand focus-visible:shadow-focus;
+  }
+  .input {
+    @apply w-full rounded-md border hairline bg-surface px-3 py-2 text-base text-ink placeholder:text-ink-muted/60 focus:border-brand focus:shadow-focus focus:outline-none;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full border hairline bg-surface px-2.5 py-1 text-[11px] uppercase tracking-wider text-ink-muted;
+  }
+  .pill-approved { @apply border-good/40 bg-good/10 text-good; }
+  .pill-denied { @apply border-bad/40 bg-bad/10 text-bad; }
+  .pill-brand { @apply border-brand/40 bg-brand/10 text-brand; }
+  .card {
+    @apply rounded-xl border hairline bg-surface shadow-card;
+  }
+  .label {
+    @apply text-[11px] uppercase tracking-[0.15em] text-ink-muted;
+  }
+  .spinner {
+    @apply inline-block h-4 w-4 animate-spin rounded-full border-[1.5px] border-current border-t-transparent align-[-0.125em];
+  }
+}
