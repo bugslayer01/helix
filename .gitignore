@@ -3,13 +3,13 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/*.local
-customer-portal/frontend/node_modules/
-customer-portal/frontend/dist/
-customer-portal/frontend/.vite/
+customer_portal/frontend/node_modules/
+customer_portal/frontend/dist/
+customer_portal/frontend/.vite/
 
 # Python
 backend/.venv/
-customer-portal/backend/.venv/
+customer_portal/backend/.venv/
 **/__pycache__/
 *.pyc
 
@@ -18,10 +18,10 @@ backend/*.db
 backend/*.db-wal
 backend/*.db-shm
 backend/uploads/
-customer-portal/backend/*.db
-customer-portal/backend/*.db-wal
-customer-portal/backend/*.db-shm
-customer-portal/backend/uploads/
+customer_portal/backend/*.db
+customer_portal/backend/*.db-wal
+customer_portal/backend/*.db-shm
+customer_portal/backend/uploads/
 
 # Secrets
 .env
