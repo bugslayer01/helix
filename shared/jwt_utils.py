@@ -25,6 +25,7 @@ _ALG = "HS256"
 _DEFAULT_TTL_HOURS = 24
 
 
+# Check if current environment is production or staging
 def _is_prod() -> bool:
     return os.environ.get("HELIX_ENV", "").lower() in {"prod", "production", "staging"}
 
