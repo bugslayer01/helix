@@ -15,6 +15,7 @@ interface State {
   applicationId: string | null;
   decision: any | null;
   contestUrl: string | null;
+  mailStatus: { ok: boolean; mailinator_inbox?: string; error?: string; skipped?: boolean } | null;
   busy: boolean;
   error: string | null;
 
@@ -42,6 +43,7 @@ export const useHiring = create<State>((set, get) => ({
   applicationId: null,
   decision: null,
   contestUrl: null,
+  mailStatus: null,
   busy: false,
   error: null,
 
@@ -83,9 +85,11 @@ export const useHiring = create<State>((set, get) => ({
     const { applicationId } = get();
     if (!applicationId) return;
     set({ busy: true, error: null });
-    try { const r = await api.requestContestLink(applicationId); set({ contestUrl: r.contest_url, busy: false }); }
-    catch (e: any) { set({ error: e.message, busy: false }); }
+    try {
+      const r = await api.requestContestLink(applicationId);
+      set({ contestUrl: r.contest_url, mailStatus: (r as any).email || null, busy: false });
+    } catch (e: any) { set({ error: e.message, busy: false }); }
   },
 
-  reset() { set({ stage: "postings", selectedPostingId: null, selectedPostingTitle: "", selectedPostingJd: "", candidate: { full_name: "", dob: "", email: "" }, applicationId: null, decision: null, contestUrl: null, error: null }); },
+  reset() { set({ stage: "postings", selectedPostingId: null, selectedPostingTitle: "", selectedPostingJd: "", candidate: { full_name: "", dob: "", email: "" }, applicationId: null, decision: null, contestUrl: null, mailStatus: null, error: null }); },
 }));

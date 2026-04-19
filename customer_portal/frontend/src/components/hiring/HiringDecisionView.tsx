@@ -79,6 +79,22 @@ export function HiringDecisionView() {
             </div>
           </div>
           {s.contestUrl && <div className="mt-4 rounded-md border hairline bg-surface px-3 py-2 text-[12px] mono text-ink-muted break-all">{s.contestUrl}</div>}
+          {s.mailStatus && (
+            <div className={`mt-3 rounded-md border px-3 py-2 text-[12.5px] ${s.mailStatus.ok ? "border-good/40 bg-good/5 text-good" : "border-warn/40 bg-warn/5 text-warn"}`}>
+              {s.mailStatus.ok ? (
+                <>
+                  ✉ Email delivered to <span className="mono">{s.candidate.email}</span>.{" "}
+                  {s.mailStatus.mailinator_inbox && (
+                    <a href={s.mailStatus.mailinator_inbox} target="_blank" rel="noopener" className="underline font-medium">View mailinator inbox →</a>
+                  )}
+                </>
+              ) : s.mailStatus.skipped ? (
+                <>✉ Email skipped (recipient is not a mailinator address).</>
+              ) : (
+                <>✉ Email send failed: {s.mailStatus.error || "unknown"}. Link still valid above.</>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>

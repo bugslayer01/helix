@@ -20,6 +20,7 @@ interface State {
   detail: any | null;
   decision: any | null;
   contestUrl: string | null;
+  mailStatus: { ok: boolean; mailinator_inbox?: string; error?: string; skipped?: boolean } | null;
   error: string | null;
   busy: boolean;
 
@@ -37,6 +38,7 @@ export const useStore = create<State>((set, get) => ({
   detail: null,
   decision: null,
   contestUrl: null,
+  mailStatus: null,
   error: null,
   busy: false,
 
@@ -53,7 +55,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async pickCase(id) {
-    set({ busy: true, error: null, applicationId: id, contestUrl: null });
+    set({ busy: true, error: null, applicationId: id, contestUrl: null, mailStatus: null });
     try {
       const detail = await api.getOperatorCase(id);
       const decision = (detail.decisions || []).slice(-1)[0] || null;
@@ -74,13 +76,13 @@ export const useStore = create<State>((set, get) => ({
     set({ busy: true, error: null });
     try {
       const r = await api.requestContestLink(applicationId);
-      set({ contestUrl: r.contest_url, busy: false });
+      set({ contestUrl: r.contest_url, mailStatus: (r as any).email || null, busy: false });
     } catch (e: any) {
       set({ error: e.message, busy: false });
     }
   },
 
   back() {
-    set({ stage: "picker", applicationId: null, detail: null, decision: null, contestUrl: null });
+    set({ stage: "picker", applicationId: null, detail: null, decision: null, contestUrl: null, mailStatus: null });
   },
 }));

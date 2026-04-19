@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from customer_portal.backend import db
 from customer_portal.backend.services import hiring_intake
 from shared.jwt_utils import sign_handoff
+from shared.mailer import is_demo_email, send_contest_email
 
 router = APIRouter(prefix="/api/v1/hiring", tags=["hiring"])
 
@@ -166,10 +167,12 @@ def hiring_contest_link(app_id: str) -> dict:
         )
 
     with db.conn() as c:
+        applicant = c.execute("SELECT * FROM applicants WHERE id = ?", (app_row["applicant_id"],)).fetchone()
         decision = c.execute(
-            "SELECT verdict FROM decisions WHERE application_id = ? ORDER BY decided_at DESC LIMIT 1",
+            "SELECT verdict, top_reasons FROM decisions WHERE application_id = ? ORDER BY decided_at DESC LIMIT 1",
             (app_id,),
         ).fetchone()
+        posting = c.execute("SELECT title FROM job_postings WHERE id = ?", (app_row["posting_id"],)).fetchone()
     if not decision or decision["verdict"] != "denied":
         raise HTTPException(
             status_code=409,
@@ -187,4 +190,23 @@ def hiring_contest_link(app_id: str) -> dict:
         c.execute("UPDATE applications SET status = 'in_contest' WHERE id = ?", (app_id,))
 
     recourse_base = os.environ.get("HELIX_RECOURSE_PORTAL_URL", "http://localhost:5173")
-    return {"contest_url": f"{recourse_base}/?t={token}", "jti": jti, "expires_in_hours": 24}
+    contest_url = f"{recourse_base}/?t={token}"
+
+    mail_result: dict = {"ok": False, "skipped": True}
+    if applicant and is_demo_email(applicant["email"]):
+        mail_result = send_contest_email(
+            to=applicant["email"],
+            applicant_name=applicant["full_name"],
+            customer_name="HiringCo",
+            case_ref=app_id,
+            decision_summary=f"Not selected for {posting['title'] if posting else 'the role'}",
+            contest_url=contest_url,
+            expires_in_hours=24,
+        )
+
+    return {
+        "contest_url": contest_url,
+        "jti": jti,
+        "expires_in_hours": 24,
+        "email": mail_result,
+    }

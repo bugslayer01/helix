@@ -5,6 +5,7 @@ export function DecisionView() {
   const detail = useStore((s) => s.detail);
   const decision = useStore((s) => s.decision);
   const contestUrl = useStore((s) => s.contestUrl);
+  const mailStatus = useStore((s) => s.mailStatus);
   const requestContest = useStore((s) => s.requestContest);
   const busy = useStore((s) => s.busy);
   const back = useStore((s) => s.back);
@@ -129,6 +130,22 @@ export function DecisionView() {
           {contestUrl && (
             <div className="mt-4 rounded-md border hairline bg-surface px-3 py-2 text-[12px] mono text-ink-muted break-all">
               {contestUrl}
+            </div>
+          )}
+          {mailStatus && (
+            <div className={`mt-3 rounded-md border px-3 py-2 text-[12.5px] ${mailStatus.ok ? "border-good/40 bg-good/5 text-good" : "border-warn/40 bg-warn/5 text-warn"}`}>
+              {mailStatus.ok ? (
+                <>
+                  ✉ Email delivered to applicant.{" "}
+                  {mailStatus.mailinator_inbox && (
+                    <a href={mailStatus.mailinator_inbox} target="_blank" rel="noopener" className="underline font-medium">View mailinator inbox →</a>
+                  )}
+                </>
+              ) : mailStatus.skipped ? (
+                <>✉ Email skipped (recipient is not a mailinator address).</>
+              ) : (
+                <>✉ Email send failed: {mailStatus.error || "unknown"}. Link still valid above.</>
+              )}
             </div>
           )}
         </div>

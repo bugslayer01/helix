@@ -1,10 +1,32 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useHiring } from "../../store_hiring";
+
+const MAILINATOR = "@mailinator.com";
+const LOCAL_RX = /^[A-Za-z0-9._+\-]+$/;
 
 export function CandidateUploadView() {
   const s = useHiring();
   const ref = useRef<HTMLInputElement | null>(null);
-  const canPick = s.candidate.full_name.trim().length > 2 && s.candidate.dob && s.candidate.email.includes("@");
+
+  // Email is split: user types only the local part; we append @mailinator.com.
+  const initialLocal = s.candidate.email.endsWith(MAILINATOR)
+    ? s.candidate.email.slice(0, -MAILINATOR.length)
+    : "";
+  const [local, setLocal] = useState(initialLocal);
+
+  const localOk = LOCAL_RX.test(local) && local.length > 0;
+  const fullEmail = localOk ? `${local}${MAILINATOR}` : "";
+  const canPick =
+    s.candidate.full_name.trim().length > 2 &&
+    !!s.candidate.dob &&
+    localOk;
+
+  const updateEmail = (v: string) => {
+    const cleaned = v.replace(MAILINATOR, "").replace(/@.*$/, "");
+    setLocal(cleaned);
+    s.setCandidate("email", cleaned ? `${cleaned}${MAILINATOR}` : "");
+  };
+
   return (
     <section className="mx-auto max-w-2xl px-6 py-14">
       <div className="label mb-3">Screen a candidate · {s.selectedPostingTitle}</div>
@@ -24,8 +46,23 @@ export function CandidateUploadView() {
             <input className="input" type="date" value={s.candidate.dob} onChange={(e) => s.setCandidate("dob", e.target.value)} />
           </div>
           <div>
-            <label className="label mb-2 block">Email</label>
-            <input className="input" type="email" placeholder="asha@example.com" value={s.candidate.email} onChange={(e) => s.setCandidate("email", e.target.value)} />
+            <label className="label mb-2 block">Email (mailinator)</label>
+            <div className="flex items-stretch rounded-md border hairline bg-surface focus-within:border-brand">
+              <input
+                className="flex-1 min-w-0 bg-transparent px-3 py-2 text-base text-ink placeholder:text-ink-muted/60 focus:outline-none"
+                placeholder="asha"
+                value={local}
+                onChange={(e) => updateEmail(e.target.value)}
+                aria-label="Mailinator inbox name"
+              />
+              <span className="flex items-center px-3 mono text-[13px] text-ink-muted bg-cream-soft border-l hairline rounded-r-md">
+                {MAILINATOR}
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-ink-muted">
+              Demo restriction: only mailinator.com inboxes (judges can read the mail without auth).
+              {local && !localOk && <span className="text-bad ml-1">Use letters/digits/._+- only.</span>}
+            </div>
           </div>
         </div>
         <div>
@@ -50,7 +87,12 @@ export function CandidateUploadView() {
           </button>
           {!canPick && (
             <div className="mt-2 text-[12px] text-ink-muted">
-              Fill in candidate name, DOB, and email above to enable file pick.
+              Fill in candidate name, DOB, and a mailinator email to enable file pick.
+            </div>
+          )}
+          {fullEmail && (
+            <div className="mt-2 text-[11px] text-ink-muted">
+              Will email contest link to <span className="mono text-ink">{fullEmail}</span> on denial.
             </div>
           )}
         </div>

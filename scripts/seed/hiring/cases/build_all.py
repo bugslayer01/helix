@@ -22,10 +22,10 @@ CASES = {
             "- Comfortable owning on-call rotation\n\n"
             "Nice to have: Go, gRPC, observability tooling."
         ),
-        "candidate": {"full_name": "Asha Verma", "dob": "1995-08-22", "email": "asha.verma@example.com"},
+        "candidate": {"full_name": "Asha Verma", "dob": "1995-08-22", "email": "helix-asha@mailinator.com"},
         "resume": {
             "name": "Asha Verma",
-            "email": "asha.verma@example.com",
+            "email": "helix-asha@mailinator.com",
             "summary": "Backend engineer with 3 years of experience building Python services. Looking for a senior role.",
             "experience": [
                 "<b>Backend Engineer · Razorpay (2024-present)</b> · Built REST APIs in FastAPI, Postgres schema design, deployed to AWS ECS.",
@@ -48,10 +48,10 @@ CASES = {
             "- Master's degree preferred\n"
             "- Strong written communication\n"
         ),
-        "candidate": {"full_name": "Devansh Kapoor", "dob": "1988-04-11", "email": "devansh.kapoor@example.com"},
+        "candidate": {"full_name": "Devansh Kapoor", "dob": "1988-04-11", "email": "helix-devansh@mailinator.com"},
         "resume": {
             "name": "Devansh Kapoor",
-            "email": "devansh.kapoor@example.com",
+            "email": "helix-devansh@mailinator.com",
             "summary": "Senior IC with 9 years building backend systems. No formal management title yet but mentored 4 juniors.",
             "experience": [
                 "<b>Staff Engineer · Flipkart (2021-present)</b> · Owned recommendations service handling 4M req/day. Mentored 4 SDE-2 engineers.",
@@ -74,10 +74,10 @@ CASES = {
             "- Comfortable with dashboards (Looker / Metabase)\n"
             "- Bachelor's in any quantitative field\n"
         ),
-        "candidate": {"full_name": "Rhea Joshi", "dob": "2002-01-15", "email": "rhea.joshi@example.com"},
+        "candidate": {"full_name": "Rhea Joshi", "dob": "2002-01-15", "email": "helix-rhea@mailinator.com"},
         "resume": {
             "name": "Rhea Joshi",
-            "email": "rhea.joshi@example.com",
+            "email": "helix-rhea@mailinator.com",
             "summary": "Recent grad with 1 year as a part-time analytics intern at a fintech. Loves Python + SQL.",
             "experience": [
                 "<b>Analytics Intern · Zerodha (2024-2025)</b> · SQL queries on PostgreSQL, dashboards in Metabase, ad-hoc Python notebooks.",

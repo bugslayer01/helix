@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from customer_portal.backend import db
 from customer_portal.backend.services import intake, scorer
+from shared.mailer import is_demo_email, send_contest_email
 from shared.jwt_utils import sign_handoff
 
 router = APIRouter(prefix="/api/v1/applications", tags=["applications"])
@@ -198,6 +199,7 @@ def request_contest_link(app_id: str) -> dict:
         app_row = c.execute("SELECT * FROM applications WHERE id = ?", (app_id,)).fetchone()
         if not app_row:
             raise HTTPException(status_code=404, detail={"error": {"code": "application_not_found", "message": "Unknown application."}})
+        applicant = c.execute("SELECT * FROM applicants WHERE id = ?", (app_row["applicant_id"],)).fetchone()
         decision = c.execute(
             "SELECT verdict FROM decisions WHERE application_id = ? ORDER BY decided_at DESC LIMIT 1",
             (app_id,),
@@ -219,8 +221,23 @@ def request_contest_link(app_id: str) -> dict:
         c.execute("UPDATE applications SET status = 'in_contest' WHERE id = ?", (app_id,))
 
     recourse_base = os.environ.get("HELIX_RECOURSE_PORTAL_URL", "http://localhost:5173")
+    contest_url = f"{recourse_base}/?t={token}"
+
+    mail_result: dict = {"ok": False, "skipped": True}
+    if applicant and is_demo_email(applicant["email"]):
+        mail_result = send_contest_email(
+            to=applicant["email"],
+            applicant_name=applicant["full_name"],
+            customer_name="LenderCo",
+            case_ref=app_id,
+            decision_summary=f"Loan application denied",
+            contest_url=contest_url,
+            expires_in_hours=24,
+        )
+
     return {
-        "contest_url": f"{recourse_base}/?t={token}",
+        "contest_url": contest_url,
         "jti": jti,
         "expires_in_hours": 24,
+        "email": mail_result,
     }
