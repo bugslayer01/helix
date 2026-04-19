@@ -26,6 +26,13 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
