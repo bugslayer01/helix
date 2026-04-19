@@ -36,3 +36,4 @@ customer_portal/backend/uploads/
 # code-review-graph
 .code-review-graph/
 .playwright-mcp/
+*.png

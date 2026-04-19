@@ -28,8 +28,8 @@ export function PickerView() {
           No cases found. Run <span className="mono">make seed-all</span> first to load demo applicants.
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full text-[14px]">
+        <div className="card overflow-x-auto">
+          <table className="w-full min-w-[640px] text-[14px]">
             <thead className="text-ink-muted">
               <tr className="border-b hairline">
                 <th className="text-left px-4 py-3">Applicant</th>

@@ -49,8 +49,8 @@ export function OperatorView() {
         <div className="text-[12px] text-ink-muted">{cases.length} cases · live</div>
       </div>
 
-      <div className="grid grid-cols-[1.1fr_1.4fr] gap-6">
-        <div className="card overflow-hidden">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1.4fr]">
+        <div className="card overflow-x-auto">
           <div className="border-b hairline bg-cream-soft/60 px-4 py-2 label">Applications</div>
           {loading ? (
             <div className="px-4 py-6 text-sm text-ink-muted">Loading…</div>
