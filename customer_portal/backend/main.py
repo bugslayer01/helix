@@ -28,6 +28,7 @@ def create_app() -> FastAPI:
     def _startup() -> None:
         db.init_db()
 
+    # Simple health check endpoint for monitoring uptime
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok", "service": "lenderco", "version": "0.1.0"}
