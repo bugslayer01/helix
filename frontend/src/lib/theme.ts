@@ -16,6 +16,7 @@ export function applyTheme(theme: Theme): void {
   root.setAttribute("data-theme", theme);
 }
 
+// Save the selected theme key in localStorage
 export function saveTheme(theme: Theme): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, theme);
