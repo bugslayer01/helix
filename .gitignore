@@ -31,7 +31,9 @@ customer_portal/backend/uploads/
 .DS_Store
 .idea/
 .vscode/
+.claude/
 *.swp
+Thumbs.db
 
 # code-review-graph
 .code-review-graph/
