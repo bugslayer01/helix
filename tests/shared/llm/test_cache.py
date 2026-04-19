@@ -4,6 +4,7 @@ import pytest
 from shared.llm.cache import disk_cache_for, cached_call
 
 
+# Test that a cache miss executes the callable function and caches result
 def test_cache_miss_calls_fn(tmp_path: Path):
     calls = {"n": 0}
     def fn():
