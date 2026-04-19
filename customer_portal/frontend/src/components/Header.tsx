@@ -14,8 +14,8 @@ export function Header() {
             <span className="h-2.5 w-2.5 rounded-full bg-surface" />
           </span>
           <span className="min-w-0">
-            <span className="display block text-lg leading-none">LenderCo</span>
-            <span className="label block mt-1 hidden sm:block">{domain === "hiring" ? "Hiring · Internal" : "Retail lending · India"}</span>
+            <span className="display block text-lg leading-none">{domain === "hiring" ? "HiringCo" : "LenderCo"}</span>
+            <span className="label block mt-1 hidden sm:block">{domain === "hiring" ? "Talent screening · Internal" : "Retail lending · India"}</span>
           </span>
         </button>
         <div className="flex items-center gap-3">

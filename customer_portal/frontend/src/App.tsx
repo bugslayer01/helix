@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useStore } from "./store";
 import { useHiring } from "./store_hiring";
 import { useApp } from "./store_app";
@@ -16,6 +17,10 @@ export function App() {
   const stage = useStore((s) => s.stage);
   const hiringStage = useHiring((s) => s.stage);
 
+  useEffect(() => {
+    document.title = domain === "hiring" ? "HiringCo · Talent screening" : "LenderCo · Loan decisions";
+  }, [domain]);
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -32,7 +37,7 @@ export function App() {
          )}
       </div>
       <footer className="border-t hairline mt-16 py-6 text-center text-[11px] text-ink-muted">
-        LenderCo · {domain === "hiring" ? "Hiring decisions powered by gpt-4o-mini" : "Loan decisions powered by XGBoost + SHAP"}.
+        {domain === "hiring" ? "HiringCo · Talent screening powered by gpt-4o-mini" : "LenderCo · Loan decisions powered by XGBoost + SHAP"}.
       </footer>
       <style>{`
         @keyframes fadein {

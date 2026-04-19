@@ -30,11 +30,29 @@ export function CandidateUploadView() {
         </div>
         <div>
           <label className="label mb-2 block">Resume PDF</label>
-          <input ref={ref} type="file" accept="application/pdf" className="sr-only"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) s.uploadResume(f); e.target.value = ""; }} />
-          <button className="btn-ghost w-full py-3" disabled={!canPick || s.busy} onClick={() => ref.current?.click()}>
+          <input
+            ref={ref}
+            type="file"
+            accept=".pdf,application/pdf"
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) s.uploadResume(f);
+              e.target.value = "";
+            }}
+          />
+          <button
+            className="btn-ghost w-full py-3"
+            disabled={!canPick || s.busy}
+            onClick={() => ref.current?.click()}
+          >
             {s.busy ? <><span className="spinner" /> Scoring…</> : "Choose resume PDF + score"}
           </button>
+          {!canPick && (
+            <div className="mt-2 text-[12px] text-ink-muted">
+              Fill in candidate name, DOB, and email above to enable file pick.
+            </div>
+          )}
         </div>
         {s.error && <div className="rounded-md border border-bad/40 bg-bad/5 px-3 py-2 text-sm text-bad">{s.error}</div>}
         <div className="pt-2"><button className="btn-ghost" onClick={() => s.goto("postings")}>← All postings</button></div>
