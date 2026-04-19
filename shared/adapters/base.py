@@ -72,3 +72,28 @@ class DomainAdapter(Protocol):
     def legal_citations(self) -> list[str]:
         """Jurisdictional hooks ("GDPR Art. 22(3)", ...) for the review path."""
         ...
+
+    # --- evidence / extraction seams (domain expansion) ------------------
+
+    def intake_doc_types(self) -> list[dict[str, Any]]:
+        """Document types accepted at application time (customer portal).
+
+        Each entry: {id, display_name, accepted_mime, required, freshness_days}.
+        """
+        ...
+
+    def evidence_doc_types(self, target_feature: str) -> list[dict[str, Any]]:
+        """Document types accepted during contest to change a given feature.
+
+        Same shape as ``intake_doc_types`` plus ``extracts_feature``.
+        """
+        ...
+
+    def extract_prompt(self, doc_type: str) -> dict[str, Any]:
+        """Prompt + JSON schema for GLM-OCR for this doc_type.
+
+        Returns {prompt: str, schema: dict, feature_field: str|None}. The
+        ``feature_field`` tells the pipeline which extracted key is the
+        numeric value to plug into the feature vector for re-evaluation.
+        """
+        ...

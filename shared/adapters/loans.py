@@ -255,6 +255,115 @@ class LoansAdapter:
     def legal_citations(self) -> list[str]:
         return ["GDPR Art. 22(3)", "DPDP §11", "FCRA §615"]
 
+    # ---- evidence seams -------------------------------------------------
+
+    def intake_doc_types(self) -> list[dict[str, Any]]:
+        return [
+            {"id": "payslip", "display_name": "Latest payslip", "accepted_mime": ["application/pdf", "image/png", "image/jpeg"], "required": True, "freshness_days": 90},
+            {"id": "bank_statement", "display_name": "6-month bank statement", "accepted_mime": ["application/pdf"], "required": True, "freshness_days": 120},
+            {"id": "credit_report", "display_name": "Credit bureau report", "accepted_mime": ["application/pdf"], "required": True, "freshness_days": 30},
+            {"id": "id_document", "display_name": "Government ID", "accepted_mime": ["application/pdf", "image/png", "image/jpeg"], "required": True, "freshness_days": 3650},
+        ]
+
+    def evidence_doc_types(self, target_feature: str) -> list[dict[str, Any]]:
+        mapping = {
+            "MonthlyIncome": [
+                {"id": "payslip", "display_name": "Recent payslip", "accepted_mime": ["application/pdf", "image/png", "image/jpeg"], "required": False, "freshness_days": 90, "extracts_feature": "net_monthly"},
+                {"id": "bank_statement", "display_name": "Bank statement showing salary credits", "accepted_mime": ["application/pdf"], "required": False, "freshness_days": 120, "extracts_feature": "average_monthly_balance"},
+            ],
+            "DebtRatio": [
+                {"id": "loan_payoff_letter", "display_name": "Loan payoff letter", "accepted_mime": ["application/pdf"], "required": False, "freshness_days": 60, "extracts_feature": "outstanding_principal"},
+                {"id": "bank_statement", "display_name": "Bank statement (debt service lines)", "accepted_mime": ["application/pdf"], "required": False, "freshness_days": 120, "extracts_feature": "monthly_debt_payments"},
+            ],
+            "RevolvingUtilizationOfUnsecuredLines": [
+                {"id": "credit_report", "display_name": "Fresh credit report", "accepted_mime": ["application/pdf"], "required": False, "freshness_days": 30, "extracts_feature": "revolving_utilization"},
+                {"id": "card_statement", "display_name": "Latest card statement", "accepted_mime": ["application/pdf"], "required": False, "freshness_days": 60, "extracts_feature": "card_balance_ratio"},
+            ],
+        }
+        return mapping.get(target_feature, [
+            {"id": "credit_report", "display_name": "Credit bureau report", "accepted_mime": ["application/pdf"], "required": False, "freshness_days": 30, "extracts_feature": None},
+        ])
+
+    def extract_prompt(self, doc_type: str) -> dict[str, Any]:
+        if doc_type == "payslip":
+            return {
+                "prompt": (
+                    "Extract structured fields from this payslip. Return a JSON object matching "
+                    "the provided schema. Use numeric values without currency symbols. Use ISO "
+                    "YYYY-MM-DD for dates. Omit unknown fields."
+                ),
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "doc_type": {"type": "string", "enum": ["payslip"]},
+                        "issuer": {"type": "string", "description": "Employer name"},
+                        "employee_name": {"type": "string"},
+                        "gross_monthly": {"type": "number"},
+                        "net_monthly": {"type": "number"},
+                        "pay_period_end": {"type": "string"},
+                        "issue_date": {"type": "string"},
+                    },
+                    "required": ["doc_type"],
+                },
+                "feature_field": "net_monthly",
+            }
+        if doc_type == "bank_statement":
+            return {
+                "prompt": (
+                    "Extract summary fields from this bank statement. Return JSON matching the "
+                    "schema. Mask account numbers as ****1234."
+                ),
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "doc_type": {"type": "string", "enum": ["bank_statement"]},
+                        "issuer": {"type": "string", "description": "Bank name"},
+                        "account_holder": {"type": "string"},
+                        "average_monthly_balance": {"type": "number"},
+                        "closing_balance": {"type": "number"},
+                        "statement_period_start": {"type": "string"},
+                        "statement_period_end": {"type": "string"},
+                        "issue_date": {"type": "string"},
+                    },
+                    "required": ["doc_type"],
+                },
+                "feature_field": "average_monthly_balance",
+            }
+        if doc_type == "credit_report":
+            return {
+                "prompt": (
+                    "Extract structured fields from this credit bureau report. Return JSON "
+                    "matching the schema. Express utilization as a decimal between 0 and 1."
+                ),
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "doc_type": {"type": "string", "enum": ["credit_report"]},
+                        "issuer": {"type": "string", "description": "Bureau name"},
+                        "credit_score": {"type": "integer"},
+                        "revolving_utilization": {"type": "number"},
+                        "open_lines": {"type": "integer"},
+                        "report_date": {"type": "string"},
+                        "issue_date": {"type": "string"},
+                    },
+                    "required": ["doc_type"],
+                },
+                "feature_field": "revolving_utilization",
+            }
+        return {
+            "prompt": f"Extract key fields from this {doc_type.replace('_', ' ')}.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "doc_type": {"type": "string"},
+                    "issuer": {"type": "string"},
+                    "issue_date": {"type": "string"},
+                },
+                "required": ["doc_type"],
+            },
+            "feature_field": None,
+        }
+
     # ---- internals ------------------------------------------------------
 
     @staticmethod

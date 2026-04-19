@@ -3,22 +3,29 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/*.local
+customer-portal/frontend/node_modules/
+customer-portal/frontend/dist/
+customer-portal/frontend/.vite/
 
 # Python
 backend/.venv/
-backend/__pycache__/
-backend/**/__pycache__/
-backend/*.pyc
-backend/**/*.pyc
+customer-portal/backend/.venv/
+**/__pycache__/
+*.pyc
 
-# Backend artifacts
-backend/db/*.db
-backend/db/*.db-wal
-backend/db/*.db-shm
-backend/data/*.csv
-backend/models/*.pkl
-backend/models/metadata/loans_hints.json
-backend/models/metadata/loans_medians.json
+# Backend artifacts (runtime DBs + uploads)
+backend/*.db
+backend/*.db-wal
+backend/*.db-shm
+backend/uploads/
+customer-portal/backend/*.db
+customer-portal/backend/*.db-wal
+customer-portal/backend/*.db-shm
+customer-portal/backend/uploads/
+
+# Secrets
+.env
+.env.local
 
 # Editor / OS
 .DS_Store

@@ -1,0 +1,62 @@
+{
+  "A4F2-9E31": [
+    {
+      "feature": "DebtRatio",
+      "evidence_type": "loan_payoff_receipt",
+      "target_value_hint": 0.3201,
+      "source": "offline_cf_approx"
+    },
+    {
+      "feature": "MonthlyIncome",
+      "evidence_type": "pay_stub",
+      "target_value_hint": 51702.0527,
+      "source": "offline_cf_approx"
+    },
+    {
+      "feature": "RevolvingUtilizationOfUnsecuredLines",
+      "evidence_type": "credit_card_statement",
+      "target_value_hint": 0.3772,
+      "source": "offline_cf_approx"
+    }
+  ],
+  "C8B1-4A27": [
+    {
+      "feature": "DebtRatio",
+      "evidence_type": "loan_payoff_receipt",
+      "target_value_hint": 0.3201,
+      "source": "offline_cf_approx"
+    },
+    {
+      "feature": "MonthlyIncome",
+      "evidence_type": "pay_stub",
+      "target_value_hint": 51702.0527,
+      "source": "offline_cf_approx"
+    },
+    {
+      "feature": "RevolvingUtilizationOfUnsecuredLines",
+      "evidence_type": "credit_card_statement",
+      "target_value_hint": 0.3772,
+      "source": "offline_cf_approx"
+    }
+  ],
+  "D7E3-1B55": [
+    {
+      "feature": "DebtRatio",
+      "evidence_type": "loan_payoff_receipt",
+      "target_value_hint": 0.3201,
+      "source": "offline_cf_approx"
+    },
+    {
+      "feature": "MonthlyIncome",
+      "evidence_type": "pay_stub",
+      "target_value_hint": 51702.0527,
+      "source": "offline_cf_approx"
+    },
+    {
+      "feature": "RevolvingUtilizationOfUnsecuredLines",
+      "evidence_type": "credit_card_statement",
+      "target_value_hint": 0.3772,
+      "source": "offline_cf_approx"
+    }
+  ]
+}

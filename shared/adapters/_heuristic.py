@@ -151,6 +151,37 @@ class HeuristicAdapter:
     def legal_citations(self) -> list[str]:
         return list(self.citations)
 
+    # ---- evidence seams (default stubs; domain adapters can override) ----
+
+    def intake_doc_types(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "id": "supporting_document",
+                "display_name": "Supporting document",
+                "accepted_mime": ["application/pdf", "image/png", "image/jpeg"],
+                "required": False,
+                "freshness_days": 365,
+            }
+        ]
+
+    def evidence_doc_types(self, target_feature: str) -> list[dict[str, Any]]:
+        return self.intake_doc_types()
+
+    def extract_prompt(self, doc_type: str) -> dict[str, Any]:
+        return {
+            "prompt": f"Extract key fields from this {doc_type.replace('_', ' ')}.",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "doc_type": {"type": "string"},
+                    "issuer": {"type": "string"},
+                    "issue_date": {"type": "string"},
+                },
+                "required": ["doc_type"],
+            },
+            "feature_field": None,
+        }
+
     # ---- internals ------------------------------------------------------
 
     def _normalize(self, features: dict[str, Any]) -> dict[str, Any]:

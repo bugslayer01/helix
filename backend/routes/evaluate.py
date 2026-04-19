@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from adapters import get_adapter, list_domains
+from shared.adapters import get_adapter, list_domains
 from seed_cases import SEED_CASES, cases_by_domain, find_case
 from services import audit_log
 

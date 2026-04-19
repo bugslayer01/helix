@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from adapters import get_adapter
+from shared.adapters import get_adapter
 from seed_cases import SEED_CASES
 from services import audit_log, evidence_store
 from services.anomaly_check import check_anomalies

@@ -12,7 +12,7 @@ import hashlib
 import random
 from typing import Any
 
-from adapters import get_adapter
+from shared.adapters import get_adapter
 from seed_cases import DEMO_SAFE_CASE_IDS, SEED_CASES
 from services import audit_log, evidence_store
 
