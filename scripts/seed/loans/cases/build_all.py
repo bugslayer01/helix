@@ -340,6 +340,7 @@ def build_case(name: str, spec: dict) -> None:
     print(f"  built {name}: {spec['name']}  ({spec['application_id']})")
 
 
+# Helper to retrieve document type from evidence ID string
 def _lib_doc_type(evidence_id: str) -> str:
     if "payslip" in evidence_id:
         return "payslip"
