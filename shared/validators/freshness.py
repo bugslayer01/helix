@@ -15,6 +15,7 @@ FRESHNESS_DAYS = {
 }
 
 
+# Parse a date string into a Date object using common formats
 def _parse_date(raw: str | None) -> date | None:
     if not raw:
         return None
