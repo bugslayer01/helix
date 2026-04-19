@@ -147,6 +147,7 @@ def submit(app_id: str) -> dict:
     }
 
 
+# GET endpoint to retrieve details of a specific application
 @router.get("/{app_id}")
 def get_application(app_id: str) -> dict:
     with db.conn() as c:
