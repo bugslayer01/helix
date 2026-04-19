@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { EvidenceShieldPanel } from "./EvidenceShieldPanel";
+import { HiringContestView } from "./HiringContestView";
 
 type FeatureSpec = {
   key: string;
@@ -74,7 +75,7 @@ function UploadRow({ spec }: { spec: FeatureSpec }) {
             accept="application/pdf,image/png,image/jpeg"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) upload(spec.key, docType, f);
+              if (f) upload(spec.key, docType, { file: f });
               e.target.value = "";
             }}
           />
@@ -125,6 +126,13 @@ export function ContestView() {
   const evidence = useStore((s) => s.evidence);
   const submitting = useStore((s) => s.submitting);
   const error = useStore((s) => s.error);
+  const shap = useStore((s) => s.shap);
+
+  // Hiring cases ship LLM-judged reasons that carry evidence_quote +
+  // jd_requirement. Loans cases never have those fields. Use that to
+  // delegate to the hiring-specific UI.
+  const isHiring = shap.some((r: any) => "evidence_quote" in r || "jd_requirement" in r);
+  if (isHiring) return <HiringContestView />;
 
   const accepted = evidence.filter((e) => e.overall === "accepted").length;
 

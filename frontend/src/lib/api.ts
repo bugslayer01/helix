@@ -149,11 +149,19 @@ export async function getSession(): Promise<{ session_id: string; case_id: strin
   return call("/contest/session");
 }
 
-export async function uploadEvidence(targetFeature: string, docType: string, file: File): Promise<UploadResp> {
+export async function uploadEvidence(
+  targetFeature: string,
+  docType: string,
+  opts: { file?: File | null; rebuttalText?: string | null },
+): Promise<UploadResp> {
+  if (!opts.file && !opts.rebuttalText) {
+    throw new Error("Provide a file or rebuttal text.");
+  }
   const fd = new FormData();
   fd.append("target_feature", targetFeature);
   fd.append("doc_type", docType);
-  fd.append("file", file);
+  if (opts.file) fd.append("file", opts.file);
+  if (opts.rebuttalText) fd.append("rebuttal_text", opts.rebuttalText);
   const res = await fetch(`${BASE}/contest/evidence`, { method: "POST", body: fd, credentials: "include" });
   if (!res.ok) {
     let body: any;

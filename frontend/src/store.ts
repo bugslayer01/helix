@@ -51,7 +51,7 @@ interface State {
   openSession(): Promise<void>;
   loadCase(): Promise<void>;
   refreshEvidence(): Promise<void>;
-  upload(feature: string, docType: string, file: File): Promise<UploadResp | null>;
+  upload(feature: string, docType: string, opts: { file?: File | null; rebuttalText?: string | null }): Promise<UploadResp | null>;
   removeEvidence(id: string): Promise<void>;
   submit(): Promise<void>;
   verifyAudit(): Promise<void>;
@@ -169,10 +169,10 @@ export const useStore = create<State>((set, get) => ({
     } catch { /* silent */ }
   },
 
-  async upload(feature, docType, file) {
+  async upload(feature, docType, opts) {
     set({ busy: true, error: null });
     try {
-      const r = await api.uploadEvidence(feature, docType, file);
+      const r = await api.uploadEvidence(feature, docType, opts);
       await get().refreshEvidence();
       set({ busy: false, lastUpload: r });
       return r;
