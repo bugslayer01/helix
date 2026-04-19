@@ -15,6 +15,7 @@ from backend.services import audit_log
 from shared.jwt_utils import sign_webhook_body
 
 
+# Helper to retrieve the lender base URL from environment config
 def _lender_base() -> str:
     return os.environ.get("HELIX_LENDER_BASE_URL", "http://localhost:8001").rstrip("/")
 
