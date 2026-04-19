@@ -58,6 +58,7 @@ interface State {
   requestReview(reason: string, statement: string): Promise<boolean>;
 }
 
+// Helper function to extract handoff token parameter from URL query string
 function tokenFromUrl(): string | null {
   try {
     const p = new URLSearchParams(window.location.search);
