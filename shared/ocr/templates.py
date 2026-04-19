@@ -109,7 +109,7 @@ def parse_bank_statement(text: str) -> TemplateResult:
     closing = _scan_currency_after(text, r"closing\s*balance")
     avg = _scan_currency_after(text, r"(?:average|avg)\s*(?:monthly\s*)?balance")
     issue_date = _extract_issue_date(text)
-    issuer_m = re.search(r"(?:bank\s+name|issued\s+by|account\s+with)\s*[:\-]\s*([A-Z][A-Za-z0-9 .,&'-]{2,60})", text, re.IGNORECASE)
+    issuer_m = re.search(r"(?:bank\s+name|issued\s+by|account\s+with|issuer)\s*[:\-·]*\s*([A-Z][A-Za-z0-9 .,&'-]{2,60})", text, re.IGNORECASE)
     if closing:
         result.fields["closing_balance"] = closing
     if avg:

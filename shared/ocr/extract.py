@@ -44,8 +44,9 @@ def _ollama_model() -> str:
     return os.environ.get("HELIX_OLLAMA_MODEL", _DEFAULT_MODEL)
 
 
-def render_pages(path: Path, *, dpi: int = 200, max_pages: int = 6) -> list[GLMPage]:
+def render_pages(path: Path | str, *, dpi: int = 200, max_pages: int = 6) -> list[GLMPage]:
     """Render a PDF or image into base64-encoded PNGs for GLM-OCR."""
+    path = Path(path)
     try:
         import pypdfium2 as pdfium  # type: ignore
     except ImportError as exc:  # pragma: no cover — dep is in requirements
@@ -72,13 +73,14 @@ def _file_to_b64(path: Path) -> str:
 
 
 def extract_with_schema(
-    path: Path,
+    path: Path | str,
     *,
     prompt: str,
     json_schema: dict[str, Any],
     timeout: float | None = None,
 ) -> dict[str, Any]:
     """Send rendered pages to Ollama with a JSON schema and return parsed fields."""
+    path = Path(path)
     pages = render_pages(path)
     if not pages:
         raise GLMExtractError("no_pages_rendered")
