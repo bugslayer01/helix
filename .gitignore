@@ -37,3 +37,6 @@ customer_portal/backend/uploads/
 .code-review-graph/
 .playwright-mcp/
 *.png
+
+# LLM cache
+.llm-cache/

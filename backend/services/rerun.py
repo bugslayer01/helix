@@ -7,7 +7,7 @@ from typing import Any
 
 from backend import db as _db
 from backend.services import audit_log
-from shared.adapters import get_adapter
+from shared.adapters import REGISTRY, get_adapter
 
 
 class ModelDriftError(Exception):
@@ -27,8 +27,14 @@ def rerun_for_case(case_id: str) -> dict[str, Any]:
         snapshot_shap = json.loads(case["snapshot_shap"])
         snapshot_decision = json.loads(case["snapshot_decision"])
 
-    adapter = get_adapter("loans")
-    if adapter.model_version_hash != case["model_version"]:
+    # Pick the adapter whose live model_version matches the snapshot.
+    # Falls back to loans to preserve historical behaviour when no match.
+    snapshot_mv = case["model_version"]
+    adapter = next(
+        (a for a in REGISTRY.values() if a.model_version_hash == snapshot_mv),
+        get_adapter("loans"),
+    )
+    if adapter.model_version_hash != snapshot_mv:
         audit_log.append(
             case_id,
             "model_drift",
@@ -47,6 +53,32 @@ def rerun_for_case(case_id: str) -> dict[str, Any]:
             "proposed": p["proposed_value"],
             "evidence_id": p["evidence_id"],
         })
+
+    # For LLM-based domains (hiring), the adapter expects rebuttals + prior
+    # decision in the feature dict. Collect them from evidence rows.
+    with _db.conn() as c:
+        rebuttal_rows = c.execute(
+            """
+            SELECT e.target_feature, e.extracted_json
+            FROM evidence e
+            JOIN proposals p ON p.evidence_id = e.id
+            WHERE e.case_id = ? AND p.status = 'validated'
+            """,
+            (case_id,),
+        ).fetchall()
+    rebuttals: list[dict] = []
+    for r in rebuttal_rows:
+        try:
+            blob = json.loads(r["extracted_json"] or "{}")
+        except json.JSONDecodeError:
+            blob = {}
+        rebuttals.append({
+            "reason_id": r["target_feature"],
+            "text": blob.get("rebuttal_text"),
+            "extracted": blob.get("fields"),
+        })
+    new_features["_rebuttals"] = rebuttals
+    new_features["_prior_decision"] = snapshot_decision
 
     prediction = adapter.predict(new_features)
     new_shap = adapter.explain(new_features)

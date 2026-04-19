@@ -20,3 +20,4 @@ pillow==11.0.0
 # Auth / crypto
 pyjwt==2.10.1
 python-dotenv==1.0.1
+openai>=1.55,<2

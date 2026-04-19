@@ -3,7 +3,7 @@ SHELL := /bin/bash
 PY := backend/.venv/bin/python
 CASE ?= case1
 
-.PHONY: help dev seed seed-all cases reset smoke model-pull deps fixtures
+.PHONY: help dev seed seed-all cases reset smoke model-pull deps fixtures seed-hiring seed-hiring-all smoke-hiring hiring-fixtures
 
 help:
 	@echo "Helix / Recourse — make targets"
@@ -57,3 +57,15 @@ deps:
 	cd customer_portal/frontend && npm install
 	@echo "frontend deps installed."
 	@echo "backend deps: run 'uv pip install --python backend/.venv/bin/python -r backend/requirements.txt'"
+
+seed-hiring:
+	$(PY) scripts/seed_hiring.py $(CASE)
+
+seed-hiring-all:
+	$(PY) scripts/seed_hiring.py --all
+
+smoke-hiring:
+	$(PY) scripts/smoke_hiring.py
+
+hiring-fixtures:
+	$(PY) -m scripts.seed.hiring.cases.build_all

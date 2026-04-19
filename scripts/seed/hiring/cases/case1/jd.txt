@@ -1,0 +1,11 @@
+About the role:
+We are hiring a Senior Backend Engineer to own our Python services platform.
+
+Requirements:
+- 5+ years backend engineering experience
+- Strong Python (FastAPI / Django) + Postgres
+- Hands-on Kubernetes in production
+- Bachelor's degree in CS or equivalent
+- Comfortable owning on-call rotation
+
+Nice to have: Go, gRPC, observability tooling.

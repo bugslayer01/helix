@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from customer_portal.backend import db
-from customer_portal.backend.routes import applications, cases, operator, webhooks
+from customer_portal.backend.routes import applications, cases, hiring, operator, webhooks
 
 
 def create_app() -> FastAPI:
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(cases.router)
     app.include_router(webhooks.router)
     app.include_router(operator.router)
+    app.include_router(hiring.router)
     return app
 
 

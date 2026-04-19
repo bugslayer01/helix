@@ -1,0 +1,10 @@
+{
+  "posting_title": "Junior Data Analyst",
+  "jd_text": "About the role:\nJunior Data Analyst on the growth team.\n\nRequirements:\n- 0-2 years experience\n- SQL and one of (Python | R)\n- Comfortable with dashboards (Looker / Metabase)\n- Bachelor's in any quantitative field\n",
+  "candidate": {
+    "full_name": "Rhea Joshi",
+    "dob": "2002-01-15",
+    "email": "rhea.joshi@example.com"
+  },
+  "story": "Approved at intake. Demos the LLM judge accepting cleanly without contest."
+}
