@@ -103,13 +103,22 @@ CREATE INDEX IF NOT EXISTS idx_hiring_apps_status ON hiring_applications(status)
 """
 
 
+_initialized_paths: set[str] = set()
+
+
 def init_db() -> None:
-    conn = _connect(db_path())
+    path = db_path()
+    conn = _connect(path)
     try:
         conn.executescript(SCHEMA)
     finally:
         conn.close()
+    _initialized_paths.add(str(path.resolve()))
 
 
 def conn() -> sqlite3.Connection:
-    return _connect(db_path())
+    path = db_path()
+    key = str(path.resolve())
+    if key not in _initialized_paths or not path.exists():
+        init_db()
+    return _connect(path)

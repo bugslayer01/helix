@@ -44,7 +44,8 @@ reset:
 	rm -f backend/recourse.db backend/recourse.db-wal backend/recourse.db-shm
 	rm -f customer_portal/backend/lender.db customer_portal/backend/lender.db-wal customer_portal/backend/lender.db-shm
 	rm -rf backend/uploads customer_portal/backend/uploads
-	@echo "databases + uploads wiped."
+	$(PY) -c "from backend.db import init_db; init_db(); from customer_portal.backend.db import init_db as i2; i2()"
+	@echo "databases wiped + schemas re-initialised."
 
 smoke:
 	$(PY) scripts/smoke.py
