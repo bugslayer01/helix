@@ -4,7 +4,6 @@
 **Track:** T5 — Trustworthy AI & Responsible Systems
 **Problem:** P3 — Model Decision Contestation Interface
 **Domain scope:** Framework-agnostic; ships with two working adapters (loans — flagship, hiring — secondary) and one documented extension path (content moderation). See §2.
-**Build agent:** Claude Code
 **Target:** Hackathon demo-grade, not production-grade. Every feature must survive a 3-minute live demo.
 
 ---
@@ -695,7 +694,7 @@ Likely questions. Have answers ready.
 
 9. **"How do you prevent gaming — users just flipping values until approved?"** — Three mechanisms: evidence-feature binding (pay stubs can only update income, not age), anomaly checks on unrealistic deltas (>3x income jumps route to human review), and full audit trails with hashes so fraudulent approvals are prosecutable after the fact. In a real production deployment, evidence would be fetched directly from authoritative sources via Account Aggregator / DigiLocker — users never touch the artifact.
 
-10. **"Why Ollama, not GPT-4 / Claude?"** — The LLM in Recourse has a narrow job: translate SHAP output to plain language. That doesn't need a frontier model; a local 3B parameter model handles it fine. Local-first means zero rate limits, zero network dependencies mid-demo, and zero latency tail. OpenAI is wired as a fallback. The LLM is never in the decision path — it's a translation layer at the edge.
+10. **"Why Ollama, not a hosted frontier LLM?"** — The LLM in Recourse has a narrow job: translate SHAP output to plain language. That doesn't need a frontier model; a local 3B parameter model handles it fine. Local-first means zero rate limits, zero network dependencies mid-demo, and zero latency tail. OpenAI is wired as a fallback. The LLM is never in the decision path — it's a translation layer at the edge.
 
 11. **"What does your system do for models that aren't XGBoost?"** — The integration contract is four methods: `predict`, `explain`, `feature_schema`, `model_version`. Any model that honors that contract plugs in. Tree models use TreeExplainer. Linear models use coefficients directly. Black-box API-only models use KernelExplainer with sampled queries. The demo ships with XGBoost because it's fast and interpretable; the contract is framework-agnostic.
 
@@ -764,7 +763,7 @@ Everything beyond these thirteen is garnish.
 
 ---
 
-## 15. For Claude Code specifically
+## 15. For the builder specifically
 
 - Start by scaffolding the backend. Model training script first, then API, then frontend. Don't build the UI against a stub — build it against a real running endpoint from day one.
 - **Build the `DomainAdapter` Protocol in `adapters/base.py` before anything else.** The entire backend then reads that contract. If you skip this step and hardcode "loans" everywhere, retrofitting the hiring adapter later will be painful.

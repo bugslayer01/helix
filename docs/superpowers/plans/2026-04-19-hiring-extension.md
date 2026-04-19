@@ -396,7 +396,7 @@ shared/llm/cache.py disk-caches every call keyed by sha256 of the full
 prompt + model + schema. Demo wifi can drop and pre-warmed cases still
 work. Repeated calls during dev cost zero tokens.
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+"
 ```
 
 ---
@@ -640,7 +640,7 @@ evidence_doc_types, and extract_prompt drive the customer portal forms.
 verbs() and legal_citations() hire-specific. EEOC + EU AI Act Annex III
 called out — hiring is high-risk regulated.
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+"
 ```
 
 ---
@@ -945,7 +945,7 @@ contest_handoffs with the loans surface. Submit-candidate runs:
    operator console + cases endpoint show the case alongside loans
 4) issue contest link on denial via the same shared.jwt_utils.sign_handoff
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+"
 ```
 
 ---
@@ -1131,7 +1131,7 @@ extraction blob and constructs the LLM context the hiring adapter needs
 (prior_decision + rebuttals). Loans adapter ignores those keys, so the
 loans flow is unaffected.
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+"
 ```
 
 ---
@@ -1660,7 +1660,7 @@ JD) → CandidateUploadView (candidate name + DOB + email + resume PDF) →
 HiringDecisionView (verdict, top reasons, full LLM reason table, contest
 link auto-issued on denial).
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+"
 ```
 
 ---
@@ -2105,7 +2105,7 @@ full round-trip including a text rebuttal and audit verification.
 
 Makefile adds seed-hiring, seed-hiring-all, smoke-hiring, hiring-fixtures.
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+"
 ```
 
 ---
