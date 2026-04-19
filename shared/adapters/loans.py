@@ -77,6 +77,7 @@ class LoansAdapter:
         self._hints = load_json(METADATA_DIR / "loans_hints.json", {})
         self._medians = load_json(METADATA_DIR / "loans_medians.json", {})
 
+    # Return the current model version from the loans judge
     @property
     def model_version_hash(self) -> str:
         return loans_judge.model_version()
